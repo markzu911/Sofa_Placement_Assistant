@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>沙发摆放助手</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-root">
+      <form id="generateForm" class="workspace">
+        <aside class="settings-panel" aria-label="素材与场景">
+          <header class="panel-header">
+            <div>
+              <p class="eyebrow">Sofa Studio</p>
+              <h1>沙发摆放助手</h1>
+            </div>
+            <span class="status-pill" id="apiStatus">检测中</span>
+          </header>
+
+          <section class="form-section" aria-labelledby="productSectionTitle">
+            <div class="section-title-row">
+              <div>
+                <p class="step-label">01</p>
+                <h2 id="productSectionTitle">产品锁定</h2>
+              </div>
+              <span class="required-tag">必传</span>
+            </div>
+
+            <label class="upload-zone product-zone" id="productDrop">
+              <input id="productImage" type="file" accept="image/png,image/jpeg,image/webp" />
+              <img id="productPreview" alt="" />
+              <span class="upload-copy">
+                <span class="upload-title">沙发产品图</span>
+                <span class="upload-meta" id="productMeta">PNG / JPG / WEBP，8MB 以内</span>
+              </span>
+            </label>
+
+            <div class="hint-row">
+              <span class="hint-dot" aria-hidden="true"></span>
+              <span>保留原图款式、颜色与轮廓</span>
+            </div>
+          </section>
+
+          <section class="form-section scene-section" aria-labelledby="sceneSectionTitle">
+            <div class="section-title-row">
+              <div>
+                <p class="step-label">02</p>
+                <h2 id="sceneSectionTitle">场景来源</h2>
+              </div>
+            </div>
+
+            <div class="segmented two" role="radiogroup" aria-label="场景来源">
+              <label>
+                <input type="radio" name="sceneMode" value="style" checked />
+                <span>风格</span>
+              </label>
+              <label>
+                <input type="radio" name="sceneMode" value="room" />
+                <span>房间图</span>
+              </label>
+            </div>
+
+            <div class="mode-pane active" id="stylePane">
+              <div class="style-list" role="radiogroup" aria-label="场景风格">
+                <label class="style-option">
+                  <input type="radio" name="sceneStyle" value="modern" checked />
+                  <span class="swatch modern" aria-hidden="true"></span>
+                  <span>现代简约</span>
+                </label>
+                <label class="style-option">
+                  <input type="radio" name="sceneStyle" value="cream_luxury" />
+                  <span class="swatch luxury" aria-hidden="true"></span>
+                  <span>轻奢暖居</span>
+                </label>
+                <label class="style-option">
+                  <input type="radio" name="sceneStyle" value="italian" />
+                  <span class="swatch italian" aria-hidden="true"></span>
+                  <span>意式极简</span>
+                </label>
+                <label class="style-option">
+                  <input type="radio" name="sceneStyle" value="japandi" />
+                  <span class="swatch japandi" aria-hidden="true"></span>
+                  <span>侘寂日式</span>
+                </label>
+                <label class="style-option">
+                  <input type="radio" name="sceneStyle" value="scandinavian" />
+                  <span class="swatch nordic" aria-hidden="true"></span>
+                  <span>北欧自然</span>
+                </label>
+                <label class="style-option">
+                  <input type="radio" name="sceneStyle" value="french" />
+                  <span class="swatch french" aria-hidden="true"></span>
+                  <span>法式复古</span>
+                </label>
+                <label class="style-option">
+                  <input type="radio" name="sceneStyle" value="loft" />
+                  <span class="swatch loft" aria-hidden="true"></span>
+                  <span>都市 Loft</span>
+                </label>
+                <label class="style-option">
+                  <input type="radio" name="sceneStyle" value="coastal" />
+                  <span class="swatch coastal" aria-hidden="true"></span>
+                  <span>海岸度假</span>
+                </label>
+              </div>
+
+              <label class="field">
+                <span>自定义风格</span>
+                <input id="customStyle" type="text" placeholder="留空使用上方风格" />
+              </label>
+            </div>
+
+            <div class="mode-pane" id="roomPane">
+              <label class="upload-zone room-zone" id="roomDrop">
+                <input id="roomImage" type="file" accept="image/png,image/jpeg,image/webp" />
+                <img id="roomPreview" alt="" />
+                <span class="upload-copy">
+                  <span class="upload-title">房间场景图</span>
+                  <span class="upload-meta" id="roomMeta">PNG / JPG / WEBP，8MB 以内</span>
+                </span>
+              </label>
+            </div>
+          </section>
+
+        </aside>
+
+        <section class="studio-shell">
+          <section class="result-panel" aria-label="生成预览">
+            <header class="result-header">
+              <div>
+                <p class="eyebrow">Preview</p>
+                <h2 id="previewTitle">等待生成</h2>
+              </div>
+              <button class="secondary-action" id="downloadButton" type="button" disabled>下载</button>
+            </header>
+
+            <div class="preview-stage" id="previewStage">
+              <div class="preview-frame" id="previewFrame">
+                <div class="empty-state" id="emptyState">
+                  <div class="empty-visual" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <p>预览画布</p>
+                </div>
+                <img id="resultImage" alt="生成结果" title="点击预览大图" />
+                <div class="loading-mask" id="loadingMask">
+                  <div class="loader" aria-hidden="true"></div>
+                  <p>生成中</p>
+                </div>
+              </div>
+            </div>
+
+            <footer class="result-footer">
+              <div>
+                <span class="footer-label">模型</span>
+                <span id="modelName">加载中</span>
+              </div>
+              <div>
+                <span class="footer-label">状态</span>
+                <span id="messageText">等待上传产品图</span>
+              </div>
+            </footer>
+          </section>
+
+          <aside class="brief-panel" aria-label="生成参数">
+            <header class="brief-header">
+              <div>
+                <p class="eyebrow">Brief</p>
+                <h2>生成参数</h2>
+              </div>
+            </header>
+
+            <div class="brief-body">
+              <section class="brief-section" aria-labelledby="productInfoTitle">
+                <div class="section-title-row">
+                  <div>
+                    <p class="step-label">03</p>
+                    <h3 id="productInfoTitle">产品信息</h3>
+                  </div>
+                </div>
+
+                <label class="field">
+                  <span>产品名称</span>
+                  <input id="productName" type="text" value="现代三人位布艺沙发" />
+                </label>
+
+                <label class="field">
+                  <span>补充描述</span>
+                  <textarea id="productDescription" rows="4" placeholder="颜色、材质、尺寸感、扶手、坐垫、脚架等"></textarea>
+                </label>
+              </section>
+
+              <section class="brief-section" aria-labelledby="placementTitle">
+                <div class="section-title-row">
+                  <div>
+                    <p class="step-label">04</p>
+                    <h3 id="placementTitle">摆放控制</h3>
+                  </div>
+                </div>
+
+                <div class="segmented four" role="radiogroup" aria-label="摆放方式">
+                  <label>
+                    <input type="radio" name="placementStrategy" value="auto" checked />
+                    <span>自动找位</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="placementStrategy" value="replace" />
+                    <span>替换座位</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="placementStrategy" value="wall" />
+                    <span>靠墙</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="placementStrategy" value="corner" />
+                    <span>角落</span>
+                  </label>
+                </div>
+
+                <div class="segmented three" role="radiogroup" aria-label="产品尺度">
+                  <label>
+                    <input type="radio" name="scaleIntent" value="natural" checked />
+                    <span>自然尺度</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="scaleIntent" value="hero" />
+                    <span>商品主角</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="scaleIntent" value="compact" />
+                    <span>空间展示</span>
+                  </label>
+                </div>
+
+                <label class="field">
+                  <span>摆放要求</span>
+                  <textarea id="placementNotes" class="compact-textarea" rows="2" placeholder="例如：不要挡住茶几；靠左侧窗边；替换原来的单椅"></textarea>
+                </label>
+              </section>
+
+              <section class="brief-section" aria-labelledby="outputTitle">
+                <div class="section-title-row">
+                  <div>
+                    <p class="step-label">05</p>
+                    <h3 id="outputTitle">输出设置</h3>
+                  </div>
+                </div>
+
+                <div class="segmented four" role="radiogroup" aria-label="视角">
+                  <label>
+                    <input type="radio" name="viewType" value="wide" checked />
+                    <span>远景</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="viewType" value="mid" />
+                    <span>中景</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="viewType" value="close" />
+                    <span>近景</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="viewType" value="model" />
+                    <span>模特</span>
+                  </label>
+                </div>
+
+                <div class="setting-grid">
+                  <label class="field">
+                    <span>分辨率</span>
+                    <select id="imageSize">
+                      <option value="2K">2K</option>
+                      <option value="4K">4K</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>图片比例</span>
+                    <select id="aspectRatio">
+                      <option value="1:1">1:1</option>
+                      <option value="4:3">4:3</option>
+                      <option value="3:4">3:4</option>
+                      <option value="16:9">16:9</option>
+                      <option value="9:16">9:16</option>
+                      <option value="21:9">21:9</option>
+                      <option value="3:2">3:2</option>
+                      <option value="2:3">2:3</option>
+                      <option value="5:4">5:4</option>
+                      <option value="4:5">4:5</option>
+                    </select>
+                  </label>
+                </div>
+              </section>
+
+              <section class="summary-card" aria-label="当前配置">
+                <div>
+                  <p class="step-label">Live</p>
+                  <h3>当前配置</h3>
+                </div>
+                <dl class="summary-list">
+                  <div>
+                    <dt>产品</dt>
+                    <dd id="summaryProduct">未上传</dd>
+                  </div>
+                  <div>
+                    <dt>场景</dt>
+                    <dd id="summaryScene">现代简约</dd>
+                  </div>
+                  <div>
+                    <dt>视角</dt>
+                    <dd id="summaryView">远景图</dd>
+                  </div>
+                  <div>
+                    <dt>摆放</dt>
+                    <dd id="summaryPlacement">自动找位</dd>
+                  </div>
+                  <div>
+                    <dt>规格</dt>
+                    <dd id="summarySpec">2K · 1:1</dd>
+                  </div>
+                </dl>
+              </section>
+            </div>
+
+            <div class="brief-actionbar">
+              <button class="primary-action" id="generateButton" type="submit">
+                <span class="action-icon" aria-hidden="true"></span>
+                <span>生成图片</span>
+              </button>
+            </div>
+          </aside>
+        </section>
+      </form>
+
+      <div class="image-modal" id="imageModal" aria-hidden="true" role="dialog" aria-label="图片预览">
+        <div class="image-modal-backdrop" id="imageModalBackdrop"></div>
+        <div class="image-modal-shell">
+          <header class="image-modal-toolbar">
+            <div>
+              <p class="eyebrow">Preview</p>
+              <h2>图片预览</h2>
+            </div>
+            <div class="image-modal-actions">
+              <button class="secondary-action" id="modalDownloadButton" type="button">下载</button>
+              <button class="icon-action" id="modalCloseButton" type="button" aria-label="关闭预览">×</button>
+            </div>
+          </header>
+          <div class="image-modal-stage" id="imageModalStage">
+            <img id="modalImage" alt="生成结果预览" />
+          </div>
+        </div>
+      </div>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
