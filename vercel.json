@@ -1,13 +1,5 @@
 {
   "version": 2,
-  "functions": {
-    "app/api/generate/route.js": {
-      "maxDuration": 120
-    },
-    "app/api/launch/route.js": {
-      "maxDuration": 120
-    }
-  },
   "rewrites": [
     {
       "source": "/ai-tool/:toolId/api/:path*",
