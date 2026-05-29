@@ -273,7 +273,7 @@ select:focus-visible {
   min-height: 150px;
 }
 
-.room-zone {
+.style-reference-zone {
   min-height: 138px;
 }
 
@@ -490,15 +490,6 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
-.mode-pane {
-  display: none;
-}
-
-.mode-pane.active {
-  display: grid;
-  gap: 10px;
-}
-
 .style-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -542,6 +533,15 @@ select:focus-visible {
 .swatch.french { background: linear-gradient(135deg, #efe2ea, #a96248); }
 .swatch.loft { background: linear-gradient(135deg, #b6afa5, #303638); }
 .swatch.coastal { background: linear-gradient(135deg, #eff8f5, #4a9aa1); }
+.swatch.custom { background: conic-gradient(from 45deg, #1f6c5f, #bb8330, #3f7288, #a96248, #1f6c5f); }
+
+.style-reference-zone.is-required {
+  border-color: var(--green);
+  background:
+    linear-gradient(135deg, rgba(31, 108, 95, 0.16), transparent 42%),
+    linear-gradient(315deg, rgba(187, 131, 48, 0.14), transparent 46%),
+    var(--surface-soft);
+}
 
 .setting-grid {
   display: grid;

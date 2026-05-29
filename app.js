@@ -1,6 +1,6 @@
 const state = {
   productImage: null,
-  roomImage: null,
+  styleReferenceImage: null,
   resultDataUrl: "",
   isLoading: false,
 };
@@ -15,6 +15,7 @@ const labels = {
     french: "法式复古",
     loft: "都市 Loft",
     coastal: "海岸度假",
+    custom: "自定义风格",
   },
   view: {
     wide: "远景图",
@@ -38,16 +39,15 @@ const labels = {
 const elements = {
   form: document.querySelector("#generateForm"),
   productInput: document.querySelector("#productImage"),
-  roomInput: document.querySelector("#roomImage"),
+  styleReferenceInput: document.querySelector("#styleReferenceImage"),
   productDrop: document.querySelector("#productDrop"),
-  roomDrop: document.querySelector("#roomDrop"),
+  styleReferenceDrop: document.querySelector("#styleReferenceDrop"),
   productPreview: document.querySelector("#productPreview"),
-  roomPreview: document.querySelector("#roomPreview"),
+  styleReferencePreview: document.querySelector("#styleReferencePreview"),
   productMeta: document.querySelector("#productMeta"),
-  roomMeta: document.querySelector("#roomMeta"),
+  styleReferenceMeta: document.querySelector("#styleReferenceMeta"),
   productName: document.querySelector("#productName"),
   productDescription: document.querySelector("#productDescription"),
-  customStyle: document.querySelector("#customStyle"),
   placementNotes: document.querySelector("#placementNotes"),
   imageSize: document.querySelector("#imageSize"),
   aspectRatio: document.querySelector("#aspectRatio"),
@@ -68,8 +68,6 @@ const elements = {
   messageText: document.querySelector("#messageText"),
   modelName: document.querySelector("#modelName"),
   apiStatus: document.querySelector("#apiStatus"),
-  stylePane: document.querySelector("#stylePane"),
-  roomPane: document.querySelector("#roomPane"),
   summaryProduct: document.querySelector("#summaryProduct"),
   summaryScene: document.querySelector("#summaryScene"),
   summaryView: document.querySelector("#summaryView"),
@@ -80,7 +78,7 @@ const elements = {
 const fileLimit = 8 * 1024 * 1024;
 const defaultMetaText = {
   productImage: "PNG / JPG / WEBP，8MB 以内",
-  roomImage: "PNG / JPG / WEBP，8MB 以内",
+  styleReferenceImage: "可选，PNG / JPG / WEBP，8MB 以内",
 };
 
 function setMessage(message, isError = false) {
@@ -144,10 +142,10 @@ async function handleFile(input, key, preview, tile, meta) {
     }
     if (key === "productImage") {
       resetResult();
-      setMessage(image ? "产品图已锁定，可以生成。" : "");
+      setMessage(image ? "产品图已作为外观基准锁定，可以生成。" : "");
       updatePreviewTitle();
     } else {
-      setMessage(image ? "房间场景图已添加。" : "");
+      setMessage(image ? "房间风格参考图已添加，仅用于风格参考。" : "");
     }
     updateSummary();
   } catch (error) {
@@ -186,16 +184,6 @@ function setupDrop(tile, input) {
   });
 }
 
-function updateSceneMode() {
-  const mode = getCheckedValue("sceneMode");
-  elements.stylePane.classList.toggle("active", mode === "style");
-  elements.roomPane.classList.toggle("active", mode === "room");
-  elements.stylePane.setAttribute("aria-hidden", mode === "style" ? "false" : "true");
-  elements.roomPane.setAttribute("aria-hidden", mode === "room" ? "false" : "true");
-  updatePreviewTitle();
-  updateSummary();
-}
-
 function setLoading(isLoading) {
   state.isLoading = isLoading;
   elements.generateButton.disabled = isLoading;
@@ -204,11 +192,25 @@ function setLoading(isLoading) {
   updatePreviewTitle();
 }
 
+function isCustomStyle() {
+  return getCheckedValue("sceneStyle") === "custom";
+}
+
 function getSceneLabel() {
-  if (getCheckedValue("sceneMode") === "room") {
-    return state.roomImage ? "房间融合" : "上传房间";
-  }
-  return elements.customStyle.value.trim() || labels.style[getCheckedValue("sceneStyle")] || "选择风格";
+  const styleLabel = labels.style[getCheckedValue("sceneStyle")] || "选择风格";
+  return state.styleReferenceImage ? `${styleLabel} + 参考图` : styleLabel;
+}
+
+function updateStyleReferenceState() {
+  const customStyle = isCustomStyle();
+  elements.styleReferenceMeta.textContent = state.styleReferenceImage
+    ? `${state.styleReferenceImage.name} · ${formatFileSize(state.styleReferenceImage.size)}`
+    : customStyle
+      ? "必传，上传后按参考图自定义风格"
+      : defaultMetaText.styleReferenceImage;
+  elements.styleReferenceDrop.classList.toggle("is-required", customStyle);
+  updatePreviewTitle();
+  updateSummary();
 }
 
 function updatePreviewTitle() {
@@ -283,10 +285,8 @@ function buildPayload() {
     productName: elements.productName.value.trim(),
     productDescription: elements.productDescription.value.trim(),
     productImage: state.productImage,
-    roomImage: state.roomImage,
-    sceneMode: getCheckedValue("sceneMode"),
+    styleReferenceImage: state.styleReferenceImage,
     sceneStyle: getCheckedValue("sceneStyle"),
-    customStyle: elements.customStyle.value.trim(),
     placementStrategy: getCheckedValue("placementStrategy"),
     scaleIntent: getCheckedValue("scaleIntent"),
     placementNotes: elements.placementNotes.value.trim(),
@@ -303,8 +303,8 @@ async function generateImage(event) {
     setMessage("请先上传沙发产品图。", true);
     return;
   }
-  if (payload.sceneMode === "room" && !payload.roomImage) {
-    setMessage("请上传房间场景图，或切换为选择风格。", true);
+  if (payload.sceneStyle === "custom" && !payload.styleReferenceImage) {
+    setMessage("请选择自定义风格参考图。", true);
     return;
   }
 
@@ -409,21 +409,25 @@ async function loadConfig() {
 elements.productInput.addEventListener("change", () =>
   handleFile(elements.productInput, "productImage", elements.productPreview, elements.productDrop, elements.productMeta),
 );
-elements.roomInput.addEventListener("change", () =>
-  handleFile(elements.roomInput, "roomImage", elements.roomPreview, elements.roomDrop, elements.roomMeta),
+elements.styleReferenceInput.addEventListener("change", () =>
+  handleFile(
+    elements.styleReferenceInput,
+    "styleReferenceImage",
+    elements.styleReferencePreview,
+    elements.styleReferenceDrop,
+    elements.styleReferenceMeta,
+  ),
 );
-document.querySelectorAll('input[name="sceneMode"]').forEach((input) => {
-  input.addEventListener("change", updateSceneMode);
+document.querySelectorAll('input[name="sceneStyle"]').forEach((input) => {
+  input.addEventListener("change", () => {
+    updateStyleReferenceState();
+  });
 });
-document.querySelectorAll('input[name="sceneStyle"], input[name="viewType"], input[name="placementStrategy"], input[name="scaleIntent"]').forEach((input) => {
+document.querySelectorAll('input[name="viewType"], input[name="placementStrategy"], input[name="scaleIntent"]').forEach((input) => {
   input.addEventListener("change", () => {
     updatePreviewTitle();
     updateSummary();
   });
-});
-elements.customStyle.addEventListener("input", () => {
-  updatePreviewTitle();
-  updateSummary();
 });
 elements.productName.addEventListener("input", updateSummary);
 elements.placementNotes.addEventListener("input", updateSummary);
@@ -449,8 +453,8 @@ if ("ResizeObserver" in window) {
   window.addEventListener("resize", fitModalImage);
 }
 setupDrop(elements.productDrop, elements.productInput);
-setupDrop(elements.roomDrop, elements.roomInput);
-updateSceneMode();
+setupDrop(elements.styleReferenceDrop, elements.styleReferenceInput);
+updateStyleReferenceState();
 updatePreviewTitle();
 updatePreviewRatio();
 fitPreviewFrameFromSelection();

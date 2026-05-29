@@ -49,6 +49,7 @@ const STYLE_PRESETS = {
   french: "法式复古：线脚墙面、柔和窗光、复古地毯与精致软装。",
   loft: "都市 Loft：微水泥、黑色金属、开放式空间，硬朗但有生活温度。",
   coastal: "海岸度假：浅色织物、藤编、自然光、蓝绿色点缀，清爽松弛。",
+  custom: "自定义风格：以参考图 2 的房间风格为主，提取其色调、材质、光线、软装气质和整体氛围。",
 };
 
 const VIEW_PRESETS = {
@@ -70,9 +71,9 @@ const PLACEMENT_PRESETS = {
 };
 
 const SCALE_PRESETS = {
-  natural: "自然尺度：按真实家具尺寸和房间距离缩放，产品不能过大压迫空间，也不能像贴纸一样悬浮。",
-  hero: "商品主角：产品可以更醒目，但仍必须处于合理座位区，不能挡住茶几、窗户、门洞或主要动线。",
-  compact: "空间展示：产品稍小，更多展示房间关系、地毯、墙面、茶几和周边软装。",
+  natural: "自然尺度：允许把产品整体等比例放大或缩小，以匹配真实家具尺寸、房间距离和镜头透视；产品不能过大压迫空间，也不能像贴纸一样悬浮。",
+  hero: "商品主角：产品可以整体等比例放大得更醒目，但仍必须处于合理座位区，不能挡住茶几、窗户、门洞或主要动线。",
+  compact: "空间展示：产品可以整体等比例稍微缩小，更多展示房间关系、地毯、墙面、茶几和周边软装。",
 };
 
 const ASPECT_RATIOS = new Set(["1:1", "4:3", "3:4", "16:9", "9:16", "21:9", "3:2", "2:3", "5:4", "4:5"]);
@@ -136,22 +137,23 @@ function parseDataUrl(value, label) {
   return { mimeType, data };
 }
 
-function buildPrompt(payload, hasRoomImage) {
-  const productName = String(payload.productName || "沙发").trim();
+function buildPrompt(payload, hasStyleReferenceImage) {
+  const productName = String(payload.productName || "").trim();
   const productDescription = String(payload.productDescription || "").trim();
   const styleKey = String(payload.sceneStyle || "modern");
-  const customStyle = String(payload.customStyle || "").trim();
   const viewKey = String(payload.viewType || "wide");
   const placementKey = String(payload.placementStrategy || "auto");
   const scaleKey = String(payload.scaleIntent || "natural");
   const placementNotes = String(payload.placementNotes || "").trim();
   const aspectRatio = String(payload.aspectRatio || "1:1");
   const imageSize = String(payload.imageSize || "2K").toUpperCase();
-  const styleLine = customStyle || STYLE_PRESETS[styleKey] || STYLE_PRESETS.modern;
+  const styleLine = STYLE_PRESETS[styleKey] || STYLE_PRESETS.modern;
   const viewLine = VIEW_PRESETS[viewKey] || VIEW_PRESETS.wide;
   const placementLine = PLACEMENT_PRESETS[placementKey] || PLACEMENT_PRESETS.auto;
   const scaleLine = SCALE_PRESETS[scaleKey] || SCALE_PRESETS.natural;
-  const sceneMode = hasRoomImage ? "使用参考图 2 的真实房间结构、透视、墙地面、窗户、光线方向。" : `生成一个符合此风格的新室内场景：${styleLine}`;
+  const styleReferenceLine = hasStyleReferenceImage
+    ? "Reference image 2 is a loose room-style reference only: borrow its color palette, material mood, lighting quality, decor taste, and overall atmosphere. Do not copy, preserve, or reconstruct the exact room, layout, furniture positions, architecture, windows, walls, floor plan, camera angle, or perspective from reference image 2."
+    : "No room-style reference image is provided.";
 
   return [
     "ROLE: You are a senior ecommerce furniture image editor, interior stylist, and room-layout designer.",
@@ -159,23 +161,28 @@ function buildPrompt(payload, hasRoomImage) {
     "",
     "CRITICAL PRODUCT IDENTITY LOCK:",
     "Reference image 1 is the immutable source of truth for the sofa product.",
+    "Treat the product in reference image 1 as a locked ecommerce SKU, not a design inspiration. Reconstruct it as a 1:1 product match inside the new scene.",
     "Keep the sofa design, silhouette, armrest shape, back height, cushion count, cushion thickness, seam lines, piping, legs, upholstery material, fabric texture, color, pattern, proportions, and decorative details unchanged.",
-    "Do not redesign, recolor, reupholster, simplify, beautify, replace, stretch, shrink, add pillows that hide the product, change cushion count, change leg style, change arm style, or invent missing product details.",
-    "Allowed changes only: camera angle adaptation, physically plausible scale in the room, environment lighting, contact shadows, reflections, and very small perspective correction required to place the exact product in the scene.",
-    "If the requested room/style conflicts with product fidelity, product fidelity wins. The final sofa must still be recognizable as the exact same SKU from reference image 1.",
+    "You may uniformly scale the entire product larger or smaller to fit the room naturally, but you must preserve its internal proportions and exact design.",
+    "Do not redesign, recolor, reupholster, simplify, beautify, replace, non-uniformly stretch or squash, warp, round off, add tufting, remove seams, add pillows that hide the product, change cushion count, change leg style, change arm style, or invent missing product details.",
+    "Product name and product fidelity notes are only auxiliary annotations for features that are unclear in reference image 1. They must never override or alter the visible product appearance in reference image 1.",
+    "Allowed changes only: uniform product scaling, camera angle adaptation, physically plausible perspective correction, environment lighting, contact shadows, reflections, and occlusion required to place the exact product naturally in the scene.",
+    "If the requested room/style conflicts with product fidelity, product fidelity wins. The final sofa must look like the same physical sofa/SKU from reference image 1, with no visible product-design changes.",
     "",
     "SCENE:",
-    sceneMode,
-    hasRoomImage
-      ? `可轻微加入 ${styleLine} 的软装气质，但不能改变房间主体结构，也不能改变沙发产品。`
-      : "从一开始就围绕参考图 1 的沙发设计真实、可居住的房间布局，不要先生成背景再把沙发贴到前景。参考图 1 的沙发必须是房间里的主沙发，不要在它后方或旁边再生成另一个主沙发。",
+    `生成一个符合此风格的新室内场景：${styleLine}`,
+    styleReferenceLine,
+    "Create a new, original, physically plausible room layout for the product. Do not treat reference image 2 as a target room for image compositing.",
+    "从一开始就围绕参考图 1 的沙发设计真实、可居住的房间布局，不要先生成背景再把沙发贴到前景。参考图 1 的沙发必须是房间里的主沙发，不要在它后方或旁边再生成另一个主沙发。",
     "",
     "ROOM LAYOUT AND PLACEMENT RULES:",
     "Before rendering, silently analyze the floor plane, horizon line, vanishing direction, wall/floor junctions, furniture grouping, window/door openings, rug position, coffee table clearance, and walking paths.",
     placementLine,
     scaleLine,
+    "Scale and place the product so it does not feel out of place: match the room's camera distance, furniture scale, floor perspective, seating group spacing, and visual hierarchy.",
     placementNotes ? `用户额外摆放要求：${placementNotes}` : "用户额外摆放要求：无。",
     "The sofa must sit on the floor plane with believable perspective, contact shadows, occlusion, and scale. Its base/feet must touch the floor and align with the room's vanishing lines.",
+    "Match the product lighting to the scene: direction, softness, color temperature, shadow density, reflections, and ambient fill should make the product feel photographed in the same room.",
     "Keep at least a realistic walking path around the sofa. Do not block doors, windows, coffee tables, side tables, lamps, or existing seating in an impossible way.",
     "If the sofa is replacing an existing seat, remove or fully replace that old seat. Do not show duplicate or overlapping sofas.",
     "Do not place the sofa directly in front of another couch, armchair, or large seat. Do not leave a background sofa behind the product unless it is clearly a separate distant chair and does not compete with the product.",
@@ -184,13 +191,14 @@ function buildPrompt(payload, hasRoomImage) {
     "",
     "COMPOSITION:",
     viewLine,
-    `产品名称：${productName}`,
-    `产品补充描述：${productDescription || "以参考图 1 为准，不用文字描述覆盖参考图。"}。`,
+    productName ? `产品名称：${productName}` : "产品名称：未填写；不要根据默认品类或名称猜测产品外观，只以参考图 1 为准。",
+    `产品还原要点：${productDescription || "无额外文字要点；严格以参考图 1 的可见外观为准"}。`,
     `输出规格：${imageSize}，画幅比例 ${aspectRatio}，单张成图。`,
     "",
     "QUALITY RULES:",
     "Photorealistic commercial photography, correct perspective, realistic scale, natural contact shadow, coherent lighting, consistent depth of field, no watermark, no text, no price tag, no logo overlay, no duplicate sofa, no malformed furniture, no extra random products covering the sofa.",
-    "Reject bad layout internally: floating product, wrong floor contact, mismatched scale, pasted-in foreground object, impossible overlap with coffee table, blocked circulation path, inconsistent lighting, or furniture that ignores the room perspective.",
+    "Reject bad layout internally: floating product, wrong floor contact, mismatched scale, pasted-in foreground object, product that feels too large or too small for the room, impossible overlap with coffee table, blocked circulation path, inconsistent lighting, or furniture that ignores the room perspective.",
+    "Final self-check before output: the product style is unchanged, the product is only uniformly scaled if needed, and the result looks like a naturally staged furniture photo rather than a cutout pasted into a scene.",
     "Output the image only.",
   ].join("\n");
 }
@@ -198,7 +206,6 @@ function buildPrompt(payload, hasRoomImage) {
 function buildGeminiRequest(payload) {
   const aspectRatio = String(payload.aspectRatio || "1:1");
   const imageSize = String(payload.imageSize || "2K").toUpperCase();
-  const sceneMode = String(payload.sceneMode || "style");
 
   if (!ASPECT_RATIOS.has(aspectRatio)) {
     throw new Error("图片比例不在支持范围内。");
@@ -208,26 +215,27 @@ function buildGeminiRequest(payload) {
   }
 
   const productImage = parseDataUrl(payload.productImage, "沙发产品图");
-  const roomImage = parseDataUrl(payload.roomImage, "房间场景图");
+  const styleReferenceImage = parseDataUrl(payload.styleReferenceImage, "房间风格参考图");
+  const sceneStyle = String(payload.sceneStyle || "modern");
 
   if (!productImage) {
     throw new Error("为了尽量保持原产品样式不变，请先上传沙发产品图。");
   }
-  if (sceneMode === "room" && !roomImage) {
-    throw new Error("已选择房间图模式，请上传房间场景图。");
+  if (sceneStyle === "custom" && !styleReferenceImage) {
+    throw new Error("已选择自定义风格，请上传房间风格参考图。");
   }
 
-  const hasRoomImage = sceneMode === "room" && Boolean(roomImage);
+  const hasStyleReferenceImage = Boolean(styleReferenceImage);
   const parts = [
-    { text: buildPrompt(payload, hasRoomImage) },
+    { text: buildPrompt(payload, hasStyleReferenceImage) },
     { text: "Reference image 1: exact sofa product. Preserve this SKU identity above all other instructions." },
     { inlineData: { mimeType: productImage.mimeType, data: productImage.data } },
   ];
 
-  if (hasRoomImage) {
+  if (hasStyleReferenceImage) {
     parts.push(
-      { text: "Reference image 2: target room scene. Place the exact sofa into this space." },
-      { inlineData: { mimeType: roomImage.mimeType, data: roomImage.data } },
+      { text: "Reference image 2: room style reference only. Use it for mood, palette, materials, lighting, and decor taste; do not copy the original room structure or layout." },
+      { inlineData: { mimeType: styleReferenceImage.mimeType, data: styleReferenceImage.data } },
     );
   }
 

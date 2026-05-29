@@ -46,80 +46,70 @@
             <div class="section-title-row">
               <div>
                 <p class="step-label">02</p>
-                <h2 id="sceneSectionTitle">场景来源</h2>
+                <h2 id="sceneSectionTitle">场景风格</h2>
               </div>
             </div>
 
-            <div class="segmented two" role="radiogroup" aria-label="场景来源">
-              <label>
-                <input type="radio" name="sceneMode" value="style" checked />
-                <span>风格</span>
+            <div class="style-list" role="radiogroup" aria-label="场景风格">
+              <label class="style-option">
+                <input type="radio" name="sceneStyle" value="modern" checked />
+                <span class="swatch modern" aria-hidden="true"></span>
+                <span>现代简约</span>
               </label>
-              <label>
-                <input type="radio" name="sceneMode" value="room" />
-                <span>房间图</span>
+              <label class="style-option">
+                <input type="radio" name="sceneStyle" value="cream_luxury" />
+                <span class="swatch luxury" aria-hidden="true"></span>
+                <span>轻奢暖居</span>
               </label>
-            </div>
-
-            <div class="mode-pane active" id="stylePane">
-              <div class="style-list" role="radiogroup" aria-label="场景风格">
-                <label class="style-option">
-                  <input type="radio" name="sceneStyle" value="modern" checked />
-                  <span class="swatch modern" aria-hidden="true"></span>
-                  <span>现代简约</span>
-                </label>
-                <label class="style-option">
-                  <input type="radio" name="sceneStyle" value="cream_luxury" />
-                  <span class="swatch luxury" aria-hidden="true"></span>
-                  <span>轻奢暖居</span>
-                </label>
-                <label class="style-option">
-                  <input type="radio" name="sceneStyle" value="italian" />
-                  <span class="swatch italian" aria-hidden="true"></span>
-                  <span>意式极简</span>
-                </label>
-                <label class="style-option">
-                  <input type="radio" name="sceneStyle" value="japandi" />
-                  <span class="swatch japandi" aria-hidden="true"></span>
-                  <span>侘寂日式</span>
-                </label>
-                <label class="style-option">
-                  <input type="radio" name="sceneStyle" value="scandinavian" />
-                  <span class="swatch nordic" aria-hidden="true"></span>
-                  <span>北欧自然</span>
-                </label>
-                <label class="style-option">
-                  <input type="radio" name="sceneStyle" value="french" />
-                  <span class="swatch french" aria-hidden="true"></span>
-                  <span>法式复古</span>
-                </label>
-                <label class="style-option">
-                  <input type="radio" name="sceneStyle" value="loft" />
-                  <span class="swatch loft" aria-hidden="true"></span>
-                  <span>都市 Loft</span>
-                </label>
-                <label class="style-option">
-                  <input type="radio" name="sceneStyle" value="coastal" />
-                  <span class="swatch coastal" aria-hidden="true"></span>
-                  <span>海岸度假</span>
-                </label>
-              </div>
-
-              <label class="field">
+              <label class="style-option">
+                <input type="radio" name="sceneStyle" value="italian" />
+                <span class="swatch italian" aria-hidden="true"></span>
+                <span>意式极简</span>
+              </label>
+              <label class="style-option">
+                <input type="radio" name="sceneStyle" value="japandi" />
+                <span class="swatch japandi" aria-hidden="true"></span>
+                <span>侘寂日式</span>
+              </label>
+              <label class="style-option">
+                <input type="radio" name="sceneStyle" value="scandinavian" />
+                <span class="swatch nordic" aria-hidden="true"></span>
+                <span>北欧自然</span>
+              </label>
+              <label class="style-option">
+                <input type="radio" name="sceneStyle" value="french" />
+                <span class="swatch french" aria-hidden="true"></span>
+                <span>法式复古</span>
+              </label>
+              <label class="style-option">
+                <input type="radio" name="sceneStyle" value="loft" />
+                <span class="swatch loft" aria-hidden="true"></span>
+                <span>都市 Loft</span>
+              </label>
+              <label class="style-option">
+                <input type="radio" name="sceneStyle" value="coastal" />
+                <span class="swatch coastal" aria-hidden="true"></span>
+                <span>海岸度假</span>
+              </label>
+              <label class="style-option">
+                <input type="radio" name="sceneStyle" value="custom" />
+                <span class="swatch custom" aria-hidden="true"></span>
                 <span>自定义风格</span>
-                <input id="customStyle" type="text" placeholder="留空使用上方风格" />
               </label>
             </div>
 
-            <div class="mode-pane" id="roomPane">
-              <label class="upload-zone room-zone" id="roomDrop">
-                <input id="roomImage" type="file" accept="image/png,image/jpeg,image/webp" />
-                <img id="roomPreview" alt="" />
-                <span class="upload-copy">
-                  <span class="upload-title">房间场景图</span>
-                  <span class="upload-meta" id="roomMeta">PNG / JPG / WEBP，8MB 以内</span>
-                </span>
-              </label>
+            <label class="upload-zone style-reference-zone" id="styleReferenceDrop">
+              <input id="styleReferenceImage" type="file" accept="image/png,image/jpeg,image/webp" />
+              <img id="styleReferencePreview" alt="" />
+              <span class="upload-copy">
+                <span class="upload-title">房间风格参考图</span>
+                <span class="upload-meta" id="styleReferenceMeta">可选，PNG / JPG / WEBP，8MB 以内</span>
+              </span>
+            </label>
+
+            <div class="hint-row">
+              <span class="hint-dot" aria-hidden="true"></span>
+              <span>只参考色调、材质、光线和软装气质，不还原原房间</span>
             </div>
           </section>
 
@@ -178,18 +168,18 @@
                 <div class="section-title-row">
                   <div>
                     <p class="step-label">03</p>
-                    <h3 id="productInfoTitle">产品信息</h3>
+                    <h3 id="productInfoTitle">产品还原</h3>
                   </div>
                 </div>
 
                 <label class="field">
                   <span>产品名称</span>
-                  <input id="productName" type="text" value="现代三人位布艺沙发" />
+                  <input id="productName" type="text" placeholder="可选；填写真实商品名，不确定就留空" />
                 </label>
 
                 <label class="field">
-                  <span>补充描述</span>
-                  <textarea id="productDescription" rows="4" placeholder="颜色、材质、尺寸感、扶手、坐垫、脚架等"></textarea>
+                  <span>还原要点</span>
+                  <textarea id="productDescription" rows="4" placeholder="只补充参考图不清楚的外观细节，例如真实颜色、材质、扶手、坐垫、脚架；不要写想改成什么"></textarea>
                 </label>
               </section>
 

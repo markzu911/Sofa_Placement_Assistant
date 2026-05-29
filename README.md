@@ -16,6 +16,7 @@ cp .env.example .env
 GEMINI_API_KEY=你的 Gemini API Key
 GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview
 PORT=8002
+HOST=0.0.0.0
 ```
 
 启动：
@@ -24,7 +25,9 @@ PORT=8002
 npm run dev
 ```
 
-打开 `http://127.0.0.1:8002`。
+本机打开 `http://127.0.0.1:8002`。同一局域网设备可打开本机网络地址，例如 `http://192.168.50.70:8002`。
+
+如果只想允许本机访问，把 `HOST` 改成 `127.0.0.1`。
 
 ## 部署到 Vercel
 
@@ -40,7 +43,7 @@ GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview
 ## 功能
 
 - 沙发产品图必传，用于锁定原产品样式。
-- 场景来源二选一：选择场景风格，或上传房间场景图。
+- 选择场景风格，可选上传房间风格参考图；参考图只用于色调、材质、光线和软装气质，不还原原房间。
 - 4 种视角：远景图、中近景、近景、模特。
 - 2K / 4K、图片比例选择。
 - 单张生成、预览、下载。

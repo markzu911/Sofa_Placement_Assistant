@@ -33,6 +33,7 @@ function loadEnvFile() {
 loadEnvFile();
 
 const PORT = Number(process.env.PORT || 8002);
+const HOST = process.env.HOST || "0.0.0.0";
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -54,7 +55,7 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  const url = new URL(req.url || "/", `http://127.0.0.1:${PORT}`);
+  const url = new URL(req.url || "/", `http://${req.headers.host || `${HOST}:${PORT}`}`);
   const pathname = url.pathname === "/" ? "/index.html" : url.pathname;
   const filePath = path.resolve(__dirname, `.${pathname}`);
   if (!filePath.startsWith(__dirname)) {
@@ -85,6 +86,9 @@ server.on("error", (error) => {
   throw error;
 });
 
-server.listen(PORT, "127.0.0.1", () => {
+server.listen(PORT, HOST, () => {
   console.log(`Sofa Placement Assistant running at http://127.0.0.1:${PORT}`);
+  if (HOST === "0.0.0.0" || HOST === "::") {
+    console.log(`LAN access enabled on this machine's network IP, for example http://192.168.50.70:${PORT}`);
+  }
 });
