@@ -1,8 +1,8 @@
-import { createRequire } from "node:module";
+import runtimeLib from "../lib/_runtime.cjs";
+import saas from "../lib/_saas.cjs";
 
-const require = createRequire(import.meta.url);
-const { getToolContext, hasToolContext, launchTool } = require("../_lib/_saas.cjs");
-const { AppError } = require("../_lib/_runtime.cjs");
+const { AppError } = runtimeLib;
+const { getToolContext, hasToolContext, launchTool } = saas;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

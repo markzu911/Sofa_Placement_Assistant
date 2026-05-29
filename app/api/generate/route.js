@@ -1,11 +1,12 @@
-import { createRequire } from "node:module";
+import runtimeLib from "../lib/_runtime.cjs";
+import saas from "../lib/_saas.cjs";
+import shared from "../lib/_shared.cjs";
 
-const require = createRequire(import.meta.url);
 const {
   DEFAULT_MODEL,
   buildGeminiRequest,
   extractGeneratedImage,
-} = require("../_lib/_shared.cjs");
+} = shared;
 const {
   buildResultFileName,
   getToolContext,
@@ -13,8 +14,8 @@ const {
   imageBufferFromDataUrl,
   saveResultImageToSaas,
   verifyBeforeGenerate,
-} = require("../_lib/_saas.cjs");
-const { AppError, createLogger, createRequestId, fetchWithTimeout } = require("../_lib/_runtime.cjs");
+} = saas;
+const { AppError, createLogger, createRequestId, fetchWithTimeout } = runtimeLib;
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_TIMEOUT_MS = 120000;

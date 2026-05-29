@@ -1,7 +1,6 @@
-import { createRequire } from "node:module";
+import shared from "../lib/_shared.cjs";
 
-const require = createRequire(import.meta.url);
-const { DEFAULT_MODEL, MAX_BODY_BYTES } = require("../_lib/_shared.cjs");
+const { DEFAULT_MODEL, MAX_BODY_BYTES } = shared;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
