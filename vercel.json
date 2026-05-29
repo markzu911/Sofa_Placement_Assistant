@@ -1,7 +1,8 @@
 {
   "version": 2,
+  "framework": "nextjs",
   "buildCommand": "npm run build",
-  "outputDirectory": null,
+  "outputDirectory": ".next",
   "rewrites": [
     {
       "source": "/ai-tool/:toolId/api/:path*",
