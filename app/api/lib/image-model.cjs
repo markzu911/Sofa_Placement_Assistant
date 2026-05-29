@@ -1,0 +1,209 @@
+const { AppError, fetchWithTimeout } = require("./_runtime.cjs");
+const { extractGeneratedImage } = require("./_shared.cjs");
+
+const GEMINI_TIMEOUT_MS = 120000;
+
+function toOpenAiImageContent(inlineData) {
+  const mimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
+  return {
+    type: "image_url",
+    image_url: {
+      url: `data:${mimeType};base64,${inlineData.data}`,
+      detail: "auto",
+    },
+  };
+}
+
+function buildGatewayMessages(geminiRequest) {
+  const content = [];
+  const contents = Array.isArray(geminiRequest.contents) ? geminiRequest.contents : [];
+
+  for (const item of contents) {
+    const parts = item && Array.isArray(item.parts) ? item.parts : [];
+    for (const part of parts) {
+      if (part && part.text) {
+        content.push({ type: "text", text: String(part.text) });
+      }
+
+      const inlineData = part && (part.inlineData || part.inline_data);
+      if (inlineData && inlineData.data) {
+        content.push(toOpenAiImageContent(inlineData));
+      }
+    }
+  }
+
+  if (!content.length) {
+    throw new AppError("Gemini 请求内容为空。", 400);
+  }
+
+  return [{ role: "user", content }];
+}
+
+function readGatewayText(message) {
+  const content = message && message.content;
+  if (typeof content === "string") return content.trim();
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((part) => {
+      if (!part) return "";
+      if (typeof part === "string") return part;
+      if (part.type === "text" && part.text) return String(part.text);
+      return "";
+    })
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+function collectGatewayImageCandidates(value, output = []) {
+  if (!value || typeof value !== "object") return output;
+
+  if (typeof value.url === "string") output.push(value.url);
+  if (typeof value.b64_json === "string") output.push(`data:image/png;base64,${value.b64_json}`);
+  if (typeof value.data === "string" && /^[A-Za-z0-9+/=]+$/.test(value.data)) {
+    output.push(`data:${value.mediaType || value.mimeType || "image/png"};base64,${value.data}`);
+  }
+
+  const imageUrl = value.image_url || value.imageUrl;
+  if (typeof imageUrl === "string") output.push(imageUrl);
+  if (imageUrl && typeof imageUrl.url === "string") output.push(imageUrl.url);
+  if (value.source && typeof value.source.data === "string") {
+    output.push(`data:${value.source.media_type || value.source.mediaType || "image/png"};base64,${value.source.data}`);
+  }
+
+  if (Array.isArray(value.images)) {
+    for (const image of value.images) collectGatewayImageCandidates(image, output);
+  }
+  if (Array.isArray(value.content)) {
+    for (const part of value.content) collectGatewayImageCandidates(part, output);
+  }
+
+  return output;
+}
+
+async function normalizeImageToDataUrl(imageValue) {
+  const value = String(imageValue || "");
+  if (value.startsWith("data:image/")) return value;
+  if (!/^https?:\/\//i.test(value)) return "";
+
+  const response = await fetchWithTimeout(
+    value,
+    { method: "GET" },
+    GEMINI_TIMEOUT_MS,
+    "AI Gateway 图片读取超时（120s）",
+  );
+  if (!response.ok) {
+    throw new AppError(`AI Gateway 图片读取失败：${response.status}`, 502);
+  }
+  const contentType = response.headers.get("content-type") || "image/png";
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return `data:${contentType};base64,${buffer.toString("base64")}`;
+}
+
+async function extractGatewayGeneratedImage(responseJson) {
+  const message = responseJson && responseJson.choices && responseJson.choices[0] && responseJson.choices[0].message;
+  const candidates = collectGatewayImageCandidates(message);
+  for (const candidate of candidates) {
+    const dataUrl = await normalizeImageToDataUrl(candidate);
+    if (dataUrl) {
+      const mimeType = dataUrl.slice(5, dataUrl.indexOf(";"));
+      return { mimeType, dataUrl, text: readGatewayText(message) };
+    }
+  }
+
+  throw new AppError("Vercel AI Gateway 没有返回图片，请检查模型是否支持 Image Gen。", 502);
+}
+
+function getErrorMessage(responseJson, responseText) {
+  if (responseJson && responseJson.error) {
+    if (typeof responseJson.error === "string") return responseJson.error;
+    if (responseJson.error.message) return responseJson.error.message;
+  }
+  return responseText || "上游接口无错误详情";
+}
+
+async function readJsonOrRaw(response) {
+  const responseText = await response.text();
+  try {
+    return {
+      responseJson: responseText ? JSON.parse(responseText) : {},
+      responseText,
+    };
+  } catch {
+    return {
+      responseJson: { raw: responseText },
+      responseText,
+    };
+  }
+}
+
+async function callNativeGemini({ ai, geminiRequest }) {
+  const response = await fetchWithTimeout(
+    `${ai.baseUrl}/${ai.model}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": ai.apiKey,
+      },
+      body: JSON.stringify(geminiRequest),
+    },
+    GEMINI_TIMEOUT_MS,
+    "Gemini 请求超时（120s）",
+  );
+
+  const { responseJson, responseText } = await readJsonOrRaw(response);
+  if (!response.ok) {
+    throw new AppError(`Gemini API 返回 ${response.status}: ${getErrorMessage(responseJson, responseText)}`, response.status || 502);
+  }
+
+  return extractGeneratedImage(responseJson);
+}
+
+async function callVercelAiGateway({ ai, geminiRequest }) {
+  const imageConfig = geminiRequest.generationConfig && geminiRequest.generationConfig.imageConfig;
+  const response = await fetchWithTimeout(
+    `${ai.baseUrl}/chat/completions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${ai.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: ai.model,
+        messages: buildGatewayMessages(geminiRequest),
+        modalities: ["text", "image"],
+        stream: false,
+        imageConfig,
+        providerOptions: {
+          google: {
+            responseModalities: ["TEXT", "IMAGE"],
+            imageConfig,
+          },
+        },
+      }),
+    },
+    GEMINI_TIMEOUT_MS,
+    "Vercel AI Gateway 请求超时（120s）",
+  );
+
+  const { responseJson, responseText } = await readJsonOrRaw(response);
+  if (!response.ok) {
+    throw new AppError(`Vercel AI Gateway 返回 ${response.status}: ${getErrorMessage(responseJson, responseText)}`, response.status || 502);
+  }
+
+  return extractGatewayGeneratedImage(responseJson);
+}
+
+async function callImageModel({ ai, geminiRequest }) {
+  if (ai.provider === "vercel-ai-gateway") {
+    return callVercelAiGateway({ ai, geminiRequest });
+  }
+  return callNativeGemini({ ai, geminiRequest });
+}
+
+module.exports = {
+  GEMINI_TIMEOUT_MS,
+  callImageModel,
+};

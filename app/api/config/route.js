@@ -1,3 +1,4 @@
+import { getAiRuntimeConfig } from "../lib/ai-config.js";
 import shared from "../lib/_shared.cjs";
 
 const { DEFAULT_MODEL, MAX_BODY_BYTES } = shared;
@@ -15,10 +16,11 @@ function json(payload, status = 200) {
 }
 
 export async function GET() {
-  const model = process.env.GEMINI_IMAGE_MODEL || DEFAULT_MODEL;
+  const ai = getAiRuntimeConfig();
   return json({
-    model,
-    hasApiKey: Boolean(process.env.GEMINI_API_KEY),
+    model: ai.model || DEFAULT_MODEL,
+    provider: ai.provider,
+    hasApiKey: Boolean(ai.apiKey),
     maxBodyBytes: MAX_BODY_BYTES,
   });
 }

@@ -1,11 +1,12 @@
 import runtimeLib from "../lib/_runtime.cjs";
+import { getAiRuntimeConfig } from "../lib/ai-config.js";
+import imageModel from "../lib/image-model.cjs";
 import saas from "../lib/_saas.cjs";
 import shared from "../lib/_shared.cjs";
 
 const {
   DEFAULT_MODEL,
   buildGeminiRequest,
-  extractGeneratedImage,
 } = shared;
 const {
   buildResultFileName,
@@ -15,10 +16,8 @@ const {
   saveResultImageToSaas,
   verifyBeforeGenerate,
 } = saas;
-const { AppError, createLogger, createRequestId, fetchWithTimeout } = runtimeLib;
-
-const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const GEMINI_TIMEOUT_MS = 120000;
+const { callImageModel } = imageModel;
+const { AppError, createLogger, createRequestId } = runtimeLib;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,16 +45,16 @@ export async function POST(request) {
   const requestStartedAt = Date.now();
   let logger = createLogger({ requestId });
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_IMAGE_MODEL || DEFAULT_MODEL;
-  if (!apiKey) {
+  const ai = getAiRuntimeConfig();
+  const model = ai.model || DEFAULT_MODEL;
+  if (!ai.apiKey) {
     logger = createLogger({ requestId, model });
     logger.log("generate.fail", {
       level: "error",
       durationMs: Date.now() - requestStartedAt,
-      errorMessage: "未配置 GEMINI_API_KEY",
+      errorMessage: ai.missingKeyMessage,
     });
-    return json({ error: "未配置 GEMINI_API_KEY。请在 Vercel 环境变量或本地 .env 中设置。" }, 500);
+    return json({ error: ai.missingKeyMessage }, 500);
   }
 
   try {
@@ -85,34 +84,7 @@ export async function POST(request) {
     logger.log("gemini.start");
     let image;
     try {
-      const response = await fetchWithTimeout(
-        `${GEMINI_API_BASE}/${model}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": apiKey,
-          },
-          body: JSON.stringify(geminiRequest),
-        },
-        GEMINI_TIMEOUT_MS,
-        "Gemini 请求超时（120s）",
-      );
-
-      const responseText = await response.text();
-      let responseJson = {};
-      try {
-        responseJson = responseText ? JSON.parse(responseText) : {};
-      } catch {
-        responseJson = { raw: responseText };
-      }
-
-      if (!response.ok) {
-        const message = responseJson.error && responseJson.error.message ? responseJson.error.message : responseText;
-        throw new AppError(`Gemini API 返回 ${response.status}: ${message}`, response.status || 502);
-      }
-
-      image = extractGeneratedImage(responseJson);
+      image = await callImageModel({ ai, geminiRequest });
       logger.log("gemini.success", { durationMs: Date.now() - geminiStartedAt });
     } catch (error) {
       logger.log("gemini.fail", {

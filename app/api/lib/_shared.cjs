@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const ROOT = path.resolve(__dirname, "..");
+const ROOT = path.resolve(__dirname, "../../..");
 const ENV_PATH = path.join(ROOT, ".env");
 const DEFAULT_MODEL = "gemini-3-pro-image-preview";
 
@@ -39,6 +39,14 @@ function loadEnvFile() {
 loadEnvFile();
 
 const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES || 20 * 1024 * 1024);
+const MAX_INPUT_IMAGE_BYTES = Number(process.env.MAX_INPUT_IMAGE_BYTES || 15 * 1024 * 1024);
+
+const SAFETY_SETTINGS = [
+  { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+];
 
 const STYLE_PRESETS = {
   modern: "现代简约：干净线条、自然留白、暖白与木色平衡，空间通透。",
@@ -118,8 +126,18 @@ function parseDataUrl(value, label) {
   if (!/^[A-Za-z0-9+/=]+$/.test(data)) {
     throw new Error(`${label} 图片数据无效，请重新上传。`);
   }
+  if (Buffer.byteLength(data, "base64") > MAX_INPUT_IMAGE_BYTES) {
+    throw new Error(`${label} 超过 15MB，请压缩后重试。`);
+  }
 
   return { mimeType, data };
+}
+
+function buildQualityLine(imageSize) {
+  if (imageSize === "4K") {
+    return "[QUALITY: 4K Ultra HD, photorealistic commercial interior photography, sharp focus, high dynamic range, extremely detailed upholstery texture, realistic shadows and material response.]";
+  }
+  return "[QUALITY: 2K UHD, high definition commercial interior photography, clean lighting, sharp product texture, realistic shadows and coherent perspective.]";
 }
 
 function buildPrompt(payload, hasStyleReferenceImage) {
@@ -140,6 +158,7 @@ function buildPrompt(payload, hasStyleReferenceImage) {
   return [
     "ROLE: You are a senior ecommerce furniture image editor, interior stylist, and room-layout designer.",
     "TASK: Render one unified photorealistic commercial image of the exact furniture product from reference image 1 inside a physically plausible interior scene.",
+    buildQualityLine(imageSize),
     "This is a single-pass scene rendering task, not a two-image cutout, masking, matting, collage, or background-replacement task.",
     "",
     "HIGHEST PRIORITY SELECTED OUTPUT CONTRACT:",
@@ -253,6 +272,7 @@ function buildGeminiRequest(payload) {
         imageSize,
       },
     },
+    safetySettings: SAFETY_SETTINGS,
   };
 }
 

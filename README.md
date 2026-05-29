@@ -19,6 +19,14 @@ PORT=8002
 HOST=0.0.0.0
 ```
 
+如果后面想改走 Vercel AI Gateway，再额外配置：
+
+```env
+GEMINI_PROVIDER=vercel-ai-gateway
+AI_GATEWAY_API_KEY=你的 Vercel AI Gateway Key
+AI_GATEWAY_IMAGE_MODEL=google/gemini-3-pro-image
+```
+
 启动：
 
 ```bash
@@ -38,7 +46,7 @@ GEMINI_API_KEY=你的 Gemini API Key
 GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview
 ```
 
-然后直接导入这个目录或连接 Git 仓库部署。项目不需要 Python，也不需要额外构建步骤。
+然后直接导入这个目录或连接 Git 仓库部署。项目不需要 Python，也不需要额外构建步骤。Vercel 项目设置里 Framework Preset 选 `Next.js`，Output Directory 留空。
 
 ## SaaS 接入流程
 
