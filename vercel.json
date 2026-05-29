@@ -2,10 +2,22 @@
   "version": 2,
   "functions": {
     "api/generate.js": {
-      "maxDuration": 60
+      "maxDuration": 120
     }
   },
   "rewrites": [
+    {
+      "source": "/ai-tool/:toolId/api/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/ai-tool/:toolId",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ai-tool/:toolId/:path*",
+      "destination": "/:path*"
+    },
     {
       "source": "/",
       "destination": "/index.html"
@@ -14,6 +26,15 @@
   "headers": [
     {
       "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/ai-tool/:toolId/api/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

@@ -2,7 +2,24 @@ const state = {
   productImage: null,
   styleReferenceImage: null,
   resultDataUrl: "",
+  resultMeta: null,
+  modalDataUrl: "",
+  modalFileName: "",
+  history: [],
   isLoading: false,
+  saas: {
+    userId: "",
+    toolId: "",
+    saasOrigin: "",
+    launchUrl: "",
+    verifyUrl: "",
+    consumeUrl: "",
+    uploadTokenUrl: "",
+    uploadCommitUrl: "",
+    user: null,
+    tool: null,
+    launchLoaded: false,
+  },
 };
 
 const labels = {
@@ -19,20 +36,12 @@ const labels = {
   },
   view: {
     wide: "远景图",
-    mid: "中近景",
+    mid: "中景图",
     close: "近景",
-    model: "模特",
   },
-  placement: {
-    auto: "自动找位",
-    replace: "替换座位",
-    wall: "靠墙",
-    corner: "角落",
-  },
-  scale: {
-    natural: "自然尺度",
-    hero: "商品主角",
-    compact: "空间展示",
+  model: {
+    false: "无模特",
+    true: "添加模特",
   },
 };
 
@@ -46,9 +55,6 @@ const elements = {
   styleReferencePreview: document.querySelector("#styleReferencePreview"),
   productMeta: document.querySelector("#productMeta"),
   styleReferenceMeta: document.querySelector("#styleReferenceMeta"),
-  productName: document.querySelector("#productName"),
-  productDescription: document.querySelector("#productDescription"),
-  placementNotes: document.querySelector("#placementNotes"),
   imageSize: document.querySelector("#imageSize"),
   aspectRatio: document.querySelector("#aspectRatio"),
   generateButton: document.querySelector("#generateButton"),
@@ -71,8 +77,11 @@ const elements = {
   summaryProduct: document.querySelector("#summaryProduct"),
   summaryScene: document.querySelector("#summaryScene"),
   summaryView: document.querySelector("#summaryView"),
-  summaryPlacement: document.querySelector("#summaryPlacement"),
+  summaryModel: document.querySelector("#summaryModel"),
   summarySpec: document.querySelector("#summarySpec"),
+  historyPanel: document.querySelector("#historyPanel"),
+  historyList: document.querySelector("#historyList"),
+  historyCount: document.querySelector("#historyCount"),
 };
 
 const fileLimit = 8 * 1024 * 1024;
@@ -81,9 +90,133 @@ const defaultMetaText = {
   styleReferenceImage: "可选，PNG / JPG / WEBP，8MB 以内",
 };
 
+function firstString(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return "";
+}
+
+function getToolIdFromPath() {
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  const index = parts.indexOf("ai-tool");
+  if (index === -1 || !parts[index + 1]) return "";
+  try {
+    return decodeURIComponent(parts[index + 1]);
+  } catch {
+    return parts[index + 1];
+  }
+}
+
+function getApiBasePath() {
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  const index = parts.indexOf("ai-tool");
+  if (index !== -1 && parts[index + 1]) {
+    return `/${parts.slice(0, index + 2).join("/")}/api`;
+  }
+  return "/api";
+}
+
+const apiBasePath = getApiBasePath();
+
+function apiPath(path) {
+  return `${apiBasePath}/${String(path || "").replace(/^\/+/, "")}`;
+}
+
 function setMessage(message, isError = false) {
   elements.messageText.textContent = message || "等待上传产品图";
   elements.messageText.classList.toggle("is-error", isError);
+}
+
+function getSaasContextFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const toolIdFromPath = getToolIdFromPath();
+  return {
+    userId: params.get("userId") || params.get("userid") || params.get("user_id") || params.get("uid") || "",
+    toolId: params.get("toolId") || params.get("toolid") || params.get("tool_id") || toolIdFromPath || "",
+    saasOrigin:
+      params.get("saasOrigin") ||
+      params.get("saas_origin") ||
+      (toolIdFromPath ? window.location.origin : ""),
+    launchUrl: params.get("launchUrl") || params.get("launch_url") || "",
+    verifyUrl: params.get("verifyUrl") || params.get("verify_url") || "",
+    consumeUrl: params.get("consumeUrl") || params.get("consume_url") || "",
+    uploadTokenUrl: params.get("uploadTokenUrl") || params.get("upload_token_url") || "",
+    uploadCommitUrl: params.get("uploadCommitUrl") || params.get("upload_commit_url") || "",
+  };
+}
+
+function updateSaasContext(context = {}) {
+  const saas = context.saas && typeof context.saas === "object" ? context.saas : {};
+  const userId = firstString(context.userId, context.userid, context.user_id, context.uid, saas.userId, saas.userid, saas.user_id, saas.uid);
+  const toolId = firstString(context.toolId, context.toolid, context.tool_id, saas.toolId, saas.toolid, saas.tool_id);
+  const saasOrigin = firstString(context.saasOrigin, context.saas_origin, context.origin, saas.saasOrigin, saas.saas_origin, saas.origin);
+  if (userId) state.saas.userId = userId;
+  if (toolId) state.saas.toolId = toolId;
+  if (saasOrigin) state.saas.saasOrigin = saasOrigin;
+  for (const key of ["launchUrl", "verifyUrl", "consumeUrl", "uploadTokenUrl", "uploadCommitUrl"]) {
+    const snakeKey = key.replace(/[A-Z]/g, (match) => `_${match.toLowerCase()}`);
+    const value = firstString(context[key], context[snakeKey], saas[key], saas[snakeKey]);
+    if (value) state.saas[key] = value;
+  }
+}
+
+function hasSaasContext() {
+  return Boolean(state.saas.userId && state.saas.toolId);
+}
+
+function getSaasRequestContext() {
+  return {
+    userId: state.saas.userId,
+    toolId: state.saas.toolId,
+    saasOrigin: state.saas.saasOrigin,
+    launchUrl: state.saas.launchUrl,
+    verifyUrl: state.saas.verifyUrl,
+    consumeUrl: state.saas.consumeUrl,
+    uploadTokenUrl: state.saas.uploadTokenUrl,
+    uploadCommitUrl: state.saas.uploadCommitUrl,
+  };
+}
+
+async function loadSaasLaunch() {
+  if (!hasSaasContext()) return;
+  try {
+    const response = await fetch(apiPath("launch"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(getSaasRequestContext()),
+    });
+    const result = await response.json();
+    if (!response.ok || result.success === false) {
+      throw new Error(result.error || result.message || "SaaS 启动失败。");
+    }
+
+    state.saas.user = result.data?.user || null;
+    state.saas.tool = result.data?.tool || null;
+    state.saas.launchLoaded = true;
+    if (state.saas.tool && Number.isFinite(Number(state.saas.tool.integral))) {
+      setMessage(`SaaS 已连接，本次生成将消耗 ${state.saas.tool.integral} 积分。`);
+    } else {
+      setMessage("SaaS 已连接，生成成功后会保存到我的图片。");
+    }
+  } catch (error) {
+    state.saas.launchLoaded = false;
+    setMessage(error.message, true);
+  }
+}
+
+function setupSaasBridge() {
+  updateSaasContext(getSaasContextFromUrl());
+  window.addEventListener("message", (event) => {
+    if (event.data?.type !== "SAAS_INIT") return;
+    updateSaasContext({
+      ...event.data,
+      saasOrigin: event.data.saasOrigin || event.data.origin || event.origin,
+    });
+    loadSaasLaunch();
+  });
 }
 
 function getCheckedValue(name) {
@@ -119,6 +252,7 @@ function formatFileSize(size) {
 
 function resetResult() {
   state.resultDataUrl = "";
+  state.resultMeta = null;
   elements.resultImage.removeAttribute("src");
   elements.resultImage.classList.remove("visible");
   closeImageModal();
@@ -268,29 +402,35 @@ function fitPreviewFrameFromSelection() {
 }
 
 function updateSummary() {
-  const productName = elements.productName.value.trim();
   const viewLabel = labels.view[getCheckedValue("viewType")] || "远景图";
-  const placementLabel = labels.placement[getCheckedValue("placementStrategy")] || "自动找位";
-  const scaleLabel = labels.scale[getCheckedValue("scaleIntent")] || "自然尺度";
+  const modelLabel = labels.model[getCheckedValue("includeModel")] || "无模特";
 
-  elements.summaryProduct.textContent = state.productImage ? productName || state.productImage.name : "未上传";
+  elements.summaryProduct.textContent = state.productImage ? state.productImage.name : "未上传";
   elements.summaryScene.textContent = getSceneLabel();
   elements.summaryView.textContent = viewLabel;
-  elements.summaryPlacement.textContent = `${placementLabel} · ${scaleLabel}`;
+  elements.summaryModel.textContent = modelLabel;
   elements.summarySpec.textContent = `${elements.imageSize.value} · ${elements.aspectRatio.value}`;
 }
 
-function buildPayload() {
+function getCurrentMeta() {
   return {
-    productName: elements.productName.value.trim(),
-    productDescription: elements.productDescription.value.trim(),
+    scene: getSceneLabel(),
+    view: labels.view[getCheckedValue("viewType")] || "远景图",
+    model: labels.model[getCheckedValue("includeModel")] || "无模特",
+    spec: `${elements.imageSize.value} · ${elements.aspectRatio.value}`,
+  };
+}
+
+function buildPayload() {
+  const saasContext = getSaasRequestContext();
+  return {
     productImage: state.productImage,
     styleReferenceImage: state.styleReferenceImage,
+    ...saasContext,
+    saas: saasContext,
     sceneStyle: getCheckedValue("sceneStyle"),
-    placementStrategy: getCheckedValue("placementStrategy"),
-    scaleIntent: getCheckedValue("scaleIntent"),
-    placementNotes: elements.placementNotes.value.trim(),
     viewType: getCheckedValue("viewType"),
+    includeModel: getCheckedValue("includeModel") === "true",
     imageSize: elements.imageSize.value,
     aspectRatio: elements.aspectRatio.value,
   };
@@ -300,18 +440,21 @@ async function generateImage(event) {
   event.preventDefault();
   const payload = buildPayload();
   if (!payload.productImage) {
-    setMessage("请先上传沙发产品图。", true);
+    setMessage("请先上传家具产品图。", true);
     return;
   }
   if (payload.sceneStyle === "custom" && !payload.styleReferenceImage) {
     setMessage("请选择自定义风格参考图。", true);
     return;
   }
-
+  if (!hasSaasContext()) {
+    setMessage("缺少 SaaS 用户上下文，请从平台入口打开工具。", true);
+    return;
+  }
   setLoading(true);
-  setMessage("");
+  setMessage("正在校验积分并生成图片");
   try {
-    const response = await fetch("/api/generate", {
+    const response = await fetch(apiPath("generate"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -320,12 +463,25 @@ async function generateImage(event) {
     if (!response.ok) {
       throw new Error(result.error || "生成失败。");
     }
-    state.resultDataUrl = result.dataUrl;
-    elements.resultImage.src = result.dataUrl;
+    const resultUrl = result.url || result.dataUrl;
+    state.resultDataUrl = resultUrl;
+    state.resultMeta = {
+      recordId: result.recordId || result.image?.recordId || "",
+      url: result.url || result.image?.url || resultUrl,
+      fileName: result.fileName || result.image?.fileName || "",
+      fileSize: result.fileSize || result.image?.fileSize || 0,
+      savedToRecords: Boolean(result.savedToRecords || result.image?.savedToRecords),
+    };
+    elements.resultImage.src = resultUrl;
     elements.resultImage.classList.add("visible");
     elements.emptyState.style.display = "none";
     elements.downloadButton.disabled = false;
-    setMessage("图片已生成");
+    addHistoryItem(resultUrl, state.resultMeta);
+    if (state.resultMeta.savedToRecords) {
+      setMessage("图片已生成并保存到我的图片");
+    } else {
+      setMessage("图片已生成");
+    }
   } catch (error) {
     setMessage(error.message, true);
   } finally {
@@ -333,23 +489,98 @@ async function generateImage(event) {
   }
 }
 
-function downloadImage() {
-  if (!state.resultDataUrl) return;
+function addHistoryItem(dataUrl, meta = {}) {
+  const item = {
+    id: `${Date.now()}-${state.history.length}`,
+    dataUrl,
+    recordId: meta.recordId || "",
+    fileName: meta.fileName || "",
+    fileSize: meta.fileSize || 0,
+    savedToRecords: Boolean(meta.savedToRecords),
+    createdAt: new Date(),
+    product: state.productImage?.name || "家具产品图",
+    ...getCurrentMeta(),
+  };
+  state.history.unshift(item);
+  renderHistory();
+}
+
+function renderHistory() {
+  elements.historyPanel.hidden = state.history.length === 0;
+  elements.historyCount.textContent = `${state.history.length} 张`;
+  elements.historyList.replaceChildren(
+    ...state.history.map((item) => {
+      const card = document.createElement("article");
+      card.className = "history-card";
+
+      const imageButton = document.createElement("button");
+      imageButton.className = "history-image-button";
+      imageButton.type = "button";
+      imageButton.setAttribute("aria-label", "预览历史图片");
+      imageButton.addEventListener("click", () => openImageModal(item.dataUrl, item.fileName));
+
+      const image = document.createElement("img");
+      image.src = item.dataUrl;
+      image.alt = "历史生成结果";
+      imageButton.appendChild(image);
+
+      const body = document.createElement("div");
+      body.className = "history-card-body";
+
+      const title = document.createElement("h3");
+      title.textContent = item.scene;
+
+      const meta = document.createElement("p");
+      meta.textContent = `${item.view} · ${item.model} · ${item.spec}`;
+
+      const product = document.createElement("p");
+      product.className = "history-product";
+      product.textContent = item.product;
+
+      const footer = document.createElement("div");
+      footer.className = "history-card-footer";
+
+      const time = document.createElement("span");
+      time.textContent = item.createdAt.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+
+      const downloadButton = document.createElement("button");
+      downloadButton.className = "secondary-action history-download";
+      downloadButton.type = "button";
+      downloadButton.textContent = "下载";
+      downloadButton.addEventListener("click", () => downloadImage(item.dataUrl, item.fileName));
+
+      footer.append(time, downloadButton);
+      body.append(title, meta, product, footer);
+      card.append(imageButton, body);
+      return card;
+    }),
+  );
+}
+
+function normalizeDownloadFileName(fileName) {
+  const baseName = String(fileName || "").split("/").filter(Boolean).pop();
+  return baseName || "";
+}
+
+function downloadImage(dataUrl = state.resultDataUrl, fileName = state.resultMeta?.fileName) {
+  if (!dataUrl) return;
   const viewType = getCheckedValue("viewType");
   const ratio = elements.aspectRatio.value.replace(":", "x");
   const size = elements.imageSize.value.toLowerCase();
   const timestamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
   const anchor = document.createElement("a");
-  anchor.href = state.resultDataUrl;
-  anchor.download = `sofa-placement-${viewType}-${ratio}-${size}-${timestamp}.png`;
+  anchor.href = dataUrl;
+  anchor.download = normalizeDownloadFileName(fileName) || `furniture-placement-${viewType}-${ratio}-${size}-${timestamp}.png`;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
 }
 
-function openImageModal() {
-  if (!state.resultDataUrl) return;
-  elements.modalImage.src = state.resultDataUrl;
+function openImageModal(dataUrl = state.resultDataUrl, fileName = state.resultMeta?.fileName || "") {
+  if (!dataUrl) return;
+  state.modalDataUrl = dataUrl;
+  state.modalFileName = fileName;
+  elements.modalImage.src = dataUrl;
   elements.imageModal.classList.add("visible");
   elements.imageModal.setAttribute("aria-hidden", "false");
   document.body.classList.add("modal-open");
@@ -360,6 +591,8 @@ function openImageModal() {
 function closeImageModal() {
   elements.imageModal.classList.remove("visible");
   elements.imageModal.setAttribute("aria-hidden", "true");
+  state.modalDataUrl = "";
+  state.modalFileName = "";
   elements.modalImage.removeAttribute("src");
   elements.modalImage.style.removeProperty("--modal-image-width");
   elements.modalImage.style.removeProperty("--modal-image-height");
@@ -391,13 +624,15 @@ function fitModalImage() {
 
 async function loadConfig() {
   try {
-    const response = await fetch("/api/config");
+    const response = await fetch(apiPath("config"));
     const config = await response.json();
     elements.modelName.textContent = `模型：${config.model}`;
     elements.apiStatus.textContent = config.hasApiKey ? "已配置" : "未配置";
     elements.apiStatus.classList.toggle("warn", !config.hasApiKey);
     if (!config.hasApiKey) {
       setMessage("请在 Vercel 环境变量或本地 .env 配置 GEMINI_API_KEY。", true);
+    } else if (hasSaasContext()) {
+      loadSaasLaunch();
     }
   } catch {
     elements.modelName.textContent = "模型：未知";
@@ -423,23 +658,23 @@ document.querySelectorAll('input[name="sceneStyle"]').forEach((input) => {
     updateStyleReferenceState();
   });
 });
-document.querySelectorAll('input[name="viewType"], input[name="placementStrategy"], input[name="scaleIntent"]').forEach((input) => {
+document.querySelectorAll('input[name="viewType"], input[name="includeModel"]').forEach((input) => {
   input.addEventListener("change", () => {
     updatePreviewTitle();
     updateSummary();
   });
 });
-elements.productName.addEventListener("input", updateSummary);
-elements.placementNotes.addEventListener("input", updateSummary);
 elements.imageSize.addEventListener("change", updateSummary);
 elements.aspectRatio.addEventListener("change", updatePreviewRatio);
 elements.form.addEventListener("submit", generateImage);
-elements.downloadButton.addEventListener("click", downloadImage);
-elements.modalDownloadButton.addEventListener("click", downloadImage);
+elements.downloadButton.addEventListener("click", () => downloadImage());
+elements.modalDownloadButton.addEventListener("click", () =>
+  downloadImage(state.modalDataUrl || state.resultDataUrl, state.modalFileName || state.resultMeta?.fileName),
+);
 elements.modalCloseButton.addEventListener("click", closeImageModal);
 elements.imageModalBackdrop.addEventListener("click", closeImageModal);
 elements.modalImage.addEventListener("load", fitModalImage);
-elements.resultImage.addEventListener("click", openImageModal);
+elements.resultImage.addEventListener("click", () => openImageModal());
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && elements.imageModal.classList.contains("visible")) {
     closeImageModal();
@@ -454,6 +689,7 @@ if ("ResizeObserver" in window) {
 }
 setupDrop(elements.productDrop, elements.productInput);
 setupDrop(elements.styleReferenceDrop, elements.styleReferenceInput);
+setupSaasBridge();
 updateStyleReferenceState();
 updatePreviewTitle();
 updatePreviewRatio();

@@ -9,6 +9,7 @@ const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const configHandler = require("./api/config.js");
 const generateHandler = require("./api/generate.js");
+const launchHandler = require("./api/launch.js");
 
 function loadEnvFile() {
   const envPath = path.join(__dirname, ".env");
@@ -45,18 +46,35 @@ const MIME_TYPES = {
   ".webp": "image/webp",
 };
 
+function isApiRoute(pathname, name) {
+  return new RegExp(`(^|/)api/${name}/?$`).test(pathname);
+}
+
+function resolveMountedPathname(pathname) {
+  const match = /^\/ai-tool\/[^/]+\/?(.*)$/.exec(pathname);
+  if (!match) return pathname;
+  const nestedPath = match[1];
+  return nestedPath ? `/${nestedPath}` : "/index.html";
+}
+
 const server = createServer(async (req, res) => {
-  if (req.url === "/api/config") {
+  const url = new URL(req.url || "/", `http://${req.headers.host || `${HOST}:${PORT}`}`);
+
+  if (isApiRoute(url.pathname, "config")) {
     await configHandler(req, res);
     return;
   }
-  if (req.url === "/api/generate") {
+  if (isApiRoute(url.pathname, "generate")) {
     await generateHandler(req, res);
     return;
   }
+  if (isApiRoute(url.pathname, "launch")) {
+    await launchHandler(req, res);
+    return;
+  }
 
-  const url = new URL(req.url || "/", `http://${req.headers.host || `${HOST}:${PORT}`}`);
-  const pathname = url.pathname === "/" ? "/index.html" : url.pathname;
+  const mountedPathname = resolveMountedPathname(url.pathname);
+  const pathname = mountedPathname === "/" ? "/index.html" : mountedPathname;
   const filePath = path.resolve(__dirname, `.${pathname}`);
   if (!filePath.startsWith(__dirname)) {
     res.writeHead(403);

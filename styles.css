@@ -621,7 +621,7 @@ select:focus-visible {
 .preview-stage {
   position: relative;
   display: grid;
-  min-height: 0;
+  min-height: 360px;
   place-items: center;
   overflow: hidden;
   padding: clamp(14px, 2.2vw, 32px);
@@ -629,6 +629,126 @@ select:focus-visible {
     radial-gradient(circle at 15% 20%, rgba(187, 131, 48, 0.1), transparent 28%),
     radial-gradient(circle at 86% 82%, rgba(63, 114, 136, 0.11), transparent 30%),
     #f3f5f2;
+}
+
+.history-panel {
+  margin-top: 12px;
+  border: 1px solid rgba(220, 227, 223, 0.92);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--shadow-soft);
+}
+
+.history-panel[hidden] {
+  display: none;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.history-header h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.history-count {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: #e7f3ee;
+  color: var(--green-dark);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.history-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 14px 16px 16px;
+}
+
+.history-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+
+.history-image-button {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface-muted);
+  padding: 0;
+  cursor: zoom-in;
+}
+
+.history-image-button img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.history-card-body {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.history-card-body h3,
+.history-card-body p {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-card-body h3 {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.history-card-body p {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.history-product {
+  color: var(--text);
+}
+
+.history-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.history-download {
+  min-width: 58px;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 
 .preview-frame {
@@ -966,6 +1086,10 @@ select:focus-visible {
     grid-template-columns: 1fr;
     height: auto;
     min-height: auto;
+  }
+
+  .result-panel {
+    min-height: 520px;
   }
 
   .settings-panel,
