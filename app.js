@@ -86,6 +86,7 @@ const elements = {
 
 const fileLimit = 8 * 1024 * 1024;
 const generateBodyMaxBytes = 900 * 1024;
+const generateRequestTimeoutMs = 120000;
 const requestImageTargetBytes = 320 * 1024;
 const requestImageMaxDimension = 1600;
 const requestImageMinDimension = 720;
@@ -565,7 +566,7 @@ async function readResponsePayload(response, fallbackMessage = "请求失败。"
     throw new Error("图片请求体过大：已超过线上代理限制，请换一张更小的产品图或降低图片尺寸后重试。");
   }
   if (response.status === 504) {
-    throw new Error("生成超时：线上工具代理等待时间不足，请稍后重试或提高平台代理超时时间。");
+    throw new Error("生成超时：模型处理超过 120 秒，请稍后重试。");
   }
   if (response.status === 502) {
     throw new Error(result.error || result.message || "生成服务暂时不可用，请稍后重试。");
@@ -589,17 +590,21 @@ async function generateImage(event) {
     return;
   }
   setLoading(true);
-  setMessage("正在校验积分并生成图片");
+  setMessage("正在校验积分并生成图片，最长等待 120 秒");
+  let timeoutId = null;
   try {
     const requestBody = JSON.stringify(payload);
     const requestBodyBytes = new Blob([requestBody]).size;
     if (requestBodyBytes > generateBodyMaxBytes) {
       throw new Error("图片请求体仍然过大，请换一张更小的产品图或参考图后重试。");
     }
+    const controller = new AbortController();
+    timeoutId = setTimeout(() => controller.abort(), generateRequestTimeoutMs);
     const response = await fetch(apiPath("generate"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: requestBody,
+      signal: controller.signal,
     });
     const result = await readResponsePayload(response, "生成失败。");
     const resultUrl = result.url || result.dataUrl;
@@ -622,8 +627,10 @@ async function generateImage(event) {
       setMessage("图片已生成");
     }
   } catch (error) {
-    setMessage(error.message, true);
+    const isTimeoutAbort = error && error.name === "AbortError";
+    setMessage(isTimeoutAbort ? "生成超时：前端已等待 120 秒，请稍后重试。" : error.message, true);
   } finally {
+    if (timeoutId) clearTimeout(timeoutId);
     setLoading(false);
   }
 }

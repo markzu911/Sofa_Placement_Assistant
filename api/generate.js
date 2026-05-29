@@ -16,7 +16,7 @@ const {
 const { AppError, createLogger, createRequestId, fetchWithTimeout } = require("./_runtime");
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const GEMINI_TIMEOUT_MS = 110000;
+const GEMINI_TIMEOUT_MS = 120000;
 
 module.exports = async function handler(req, res) {
   const requestId = createRequestId();
@@ -79,7 +79,7 @@ module.exports = async function handler(req, res) {
           body: JSON.stringify(geminiRequest),
         },
         GEMINI_TIMEOUT_MS,
-        "Gemini 请求超时",
+        "Gemini 请求超时（120s）",
       );
 
       const responseText = await response.text();
