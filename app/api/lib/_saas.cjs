@@ -204,6 +204,20 @@ function buildResultFileName(payload, mimeType) {
   return `furniture-placement-${viewType}-${ratio}-${timestamp}.${extensionFromMimeType(mimeType)}`;
 }
 
+function pickRenderableImageUrl(context, candidates) {
+  const values = candidates.map((value) => String(value || "").trim()).filter(Boolean);
+
+  for (const value of values) {
+    if (/^(https?:|data:image\/)/i.test(value)) return value;
+  }
+
+  for (const value of values) {
+    if (value.startsWith("/")) return `${getSaasOrigin(context)}${value}`;
+  }
+
+  return values[0] || "";
+}
+
 async function saveResultImageToSaas({ context, imageBuffer, mimeType, fileName, logger }) {
   let startedAt = Date.now();
   logger?.log("saas.consume.start", { fileSize: imageBuffer.byteLength });
@@ -341,9 +355,15 @@ async function saveResultImageToSaas({ context, imageBuffer, mimeType, fileName,
   }
 
   const image = commit.image || {};
+  const imageUrl = pickRenderableImageUrl(context, [
+    image.url,
+    commit.url,
+    token.readUrl,
+    token.publicUrl,
+  ]);
   const savedImage = {
     recordId: image.recordId || commit.recordId,
-    url: image.url || commit.url || token.readUrl || token.publicUrl,
+    url: imageUrl,
     fileName: image.fileName || commit.fileName || token.fileName || token.objectKey,
     fileSize: image.fileSize || imageBuffer.byteLength,
     savedToRecords: image.savedToRecords !== undefined ? image.savedToRecords : commit.savedToRecords,

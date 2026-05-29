@@ -23,6 +23,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
+const SYNC_RESPONSE_BUDGET_MS = 112000;
+const SAVE_RESULT_MIN_BUDGET_MS = 18000;
+
 function json(payload, status = 200) {
   return Response.json(payload, {
     status,
@@ -96,6 +99,33 @@ export async function POST(request) {
     }
 
     const { mimeType, buffer } = imageBufferFromDataUrl(image.dataUrl);
+    const remainingBudgetMs = SYNC_RESPONSE_BUDGET_MS - (Date.now() - requestStartedAt);
+    if (remainingBudgetMs < SAVE_RESULT_MIN_BUDGET_MS) {
+      logger.log("saas.save.skip", {
+        level: "warn",
+        durationMs: Date.now() - requestStartedAt,
+        fileSize: buffer.byteLength,
+        errorMessage: "剩余同步时间不足，跳过保存以避免网关 504。",
+      });
+      return json({
+        model,
+        mimeType,
+        text: image.text,
+        dataUrl: image.dataUrl,
+        url: image.dataUrl,
+        fileName: buildResultFileName(payload, mimeType),
+        fileSize: buffer.byteLength,
+        savedToRecords: false,
+        image: {
+          url: image.dataUrl,
+          fileName: buildResultFileName(payload, mimeType),
+          fileSize: buffer.byteLength,
+          savedToRecords: false,
+        },
+        warning: "图片已生成，但本次模型耗时较长，为避免 504 未同步保存到我的图片。",
+      });
+    }
+
     const savedImage = await saveResultImageToSaas({
       context: toolContext,
       imageBuffer: buffer,

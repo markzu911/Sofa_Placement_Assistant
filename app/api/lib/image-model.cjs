@@ -2,9 +2,9 @@ const { AppError, fetchWithTimeout } = require("./_runtime.cjs");
 const { extractGeneratedImage } = require("./_shared.cjs");
 const { GoogleGenAI } = require("@google/genai");
 
-const GEMINI_TIMEOUT_MS = 110000;
+const GEMINI_TIMEOUT_MS = 88000;
 
-function withTimeout(promise, timeoutMs = GEMINI_TIMEOUT_MS, message = "Gemini 请求超时（110s），请压缩参考图或选择 2K 后重试。") {
+function withTimeout(promise, timeoutMs = GEMINI_TIMEOUT_MS, message = "Gemini 请求超时（88s），已为保存结果预留时间，请稍后重试。") {
   let timer;
   const timeoutPromise = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new AppError(message, 504)), timeoutMs);
