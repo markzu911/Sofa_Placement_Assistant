@@ -5,7 +5,7 @@ const {
   DEFAULT_MODEL,
   buildGeminiRequest,
   extractGeneratedImage,
-} = require("../../../api/_shared.cjs");
+} = require("../_lib/_shared.cjs");
 const {
   buildResultFileName,
   getToolContext,
@@ -13,8 +13,8 @@ const {
   imageBufferFromDataUrl,
   saveResultImageToSaas,
   verifyBeforeGenerate,
-} = require("../../../api/_saas.cjs");
-const { AppError, createLogger, createRequestId, fetchWithTimeout } = require("../../../api/_runtime.cjs");
+} = require("../_lib/_saas.cjs");
+const { AppError, createLogger, createRequestId, fetchWithTimeout } = require("../_lib/_runtime.cjs");
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_TIMEOUT_MS = 120000;
