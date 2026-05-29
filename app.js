@@ -85,6 +85,10 @@ const elements = {
 };
 
 const fileLimit = 8 * 1024 * 1024;
+const generateBodyMaxBytes = 900 * 1024;
+const requestImageTargetBytes = 320 * 1024;
+const requestImageMaxDimension = 1600;
+const requestImageMinDimension = 720;
 const defaultMetaText = {
   productImage: "PNG / JPG / WEBP，8MB 以内",
   styleReferenceImage: "可选，PNG / JPG / WEBP，8MB 以内",
@@ -169,6 +173,125 @@ function hasSaasContext() {
   return Boolean(state.saas.userId && state.saas.toolId);
 }
 
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("图片读取失败。"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function readOriginalImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ dataUrl: reader.result, name: file.name, size: file.size });
+    reader.onerror = () => reject(new Error("图片读取失败。"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("图片解析失败，请更换图片后重试。"));
+    };
+    image.src = url;
+  });
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error("图片压缩失败，请更换图片后重试。"));
+        }
+      },
+      type,
+      quality,
+    );
+  });
+}
+
+async function compressImageForRequest(file) {
+  if (file.size <= requestImageTargetBytes && /^image\/(jpeg|webp)$/i.test(file.type)) {
+    return readOriginalImage(file);
+  }
+
+  const image = await loadImage(file);
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+  if (!sourceWidth || !sourceHeight) {
+    throw new Error("图片尺寸无效，请更换图片后重试。");
+  }
+
+  const sourceMax = Math.max(sourceWidth, sourceHeight);
+  const initialMax = Math.min(sourceMax, requestImageMaxDimension);
+  const dimensionSteps = [
+    initialMax,
+    1400,
+    1200,
+    1000,
+    860,
+    requestImageMinDimension,
+    sourceMax,
+  ]
+    .filter((value) => value > 0 && value <= sourceMax)
+    .filter((value, index, values) => values.indexOf(value) === index);
+  const qualities = [0.86, 0.78, 0.7, 0.62, 0.54];
+  let best = null;
+
+  for (const maxDimension of dimensionSteps) {
+    const scale = Math.min(1, maxDimension / sourceMax);
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("浏览器不支持图片压缩，请更换浏览器后重试。");
+    }
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.drawImage(image, 0, 0, width, height);
+
+    for (const quality of qualities) {
+      const blob = await canvasToBlob(canvas, "image/jpeg", quality);
+      best = blob;
+      if (blob.size <= requestImageTargetBytes) {
+        return {
+          dataUrl: await blobToDataUrl(blob),
+          name: file.name,
+          size: blob.size,
+          originalSize: file.size,
+        };
+      }
+    }
+  }
+
+  if (!best) {
+    throw new Error("图片压缩失败，请更换图片后重试。");
+  }
+
+  return {
+    dataUrl: await blobToDataUrl(best),
+    name: file.name,
+    size: best.size,
+    originalSize: file.size,
+  };
+}
+
 function getSaasRequestContext() {
   return {
     userId: state.saas.userId,
@@ -226,24 +349,14 @@ function getCheckedValue(name) {
 }
 
 function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    if (!file) {
-      resolve(null);
-      return;
-    }
-    if (!file.type.match(/^image\/(png|jpeg|webp)$/)) {
-      reject(new Error("仅支持 PNG、JPG/JPEG、WEBP 图片。"));
-      return;
-    }
-    if (file.size > fileLimit) {
-      reject(new Error("单张参考图请控制在 8MB 以内。"));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => resolve({ dataUrl: reader.result, name: file.name, size: file.size });
-    reader.onerror = () => reject(new Error("图片读取失败。"));
-    reader.readAsDataURL(file);
-  });
+  if (!file) return Promise.resolve(null);
+  if (!file.type.match(/^image\/(png|jpeg|webp)$/)) {
+    return Promise.reject(new Error("仅支持 PNG、JPG/JPEG、WEBP 图片。"));
+  }
+  if (file.size > fileLimit) {
+    return Promise.reject(new Error("单张参考图请控制在 8MB 以内。"));
+  }
+  return compressImageForRequest(file);
 }
 
 function formatFileSize(size) {
@@ -270,7 +383,7 @@ async function handleFile(input, key, preview, tile, meta) {
     if (image) {
       preview.src = image.dataUrl;
       tile.classList.add("has-image");
-      meta.textContent = `${file.name} · ${formatFileSize(file.size)}`;
+      meta.textContent = `${image.name} · ${formatFileSize(image.size)}`;
     } else {
       preview.removeAttribute("src");
       tile.classList.remove("has-image");
@@ -448,6 +561,9 @@ async function readResponsePayload(response, fallbackMessage = "请求失败。"
   }
 
   if (response.ok) return result;
+  if (response.status === 413) {
+    throw new Error("图片请求体过大：已超过线上代理限制，请换一张更小的产品图或降低图片尺寸后重试。");
+  }
   if (response.status === 504) {
     throw new Error("生成超时：线上工具代理等待时间不足，请稍后重试或提高平台代理超时时间。");
   }
@@ -475,10 +591,15 @@ async function generateImage(event) {
   setLoading(true);
   setMessage("正在校验积分并生成图片");
   try {
+    const requestBody = JSON.stringify(payload);
+    const requestBodyBytes = new Blob([requestBody]).size;
+    if (requestBodyBytes > generateBodyMaxBytes) {
+      throw new Error("图片请求体仍然过大，请换一张更小的产品图或参考图后重试。");
+    }
     const response = await fetch(apiPath("generate"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: requestBody,
     });
     const result = await readResponsePayload(response, "生成失败。");
     const resultUrl = result.url || result.dataUrl;
