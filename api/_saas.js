@@ -3,6 +3,7 @@ const { AppError, fetchWithTimeout } = require("./_runtime");
 
 const SAAS_TIMEOUT_MS = 20000;
 const OSS_TIMEOUT_MS = 60000;
+const SAAS_ROOT_HOSTNAME = "aibigtree.com";
 const LOCAL_SAAS_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
 function pickString(source, keys) {
@@ -36,10 +37,20 @@ function getEndpointOrigin(endpoint) {
   }
 }
 
-function isAllowedSaasOrigin(origin) {
+function isAibigtreeHostname(hostname) {
+  const value = String(hostname || "").toLowerCase();
+  return value === SAAS_ROOT_HOSTNAME || value.endsWith(`.${SAAS_ROOT_HOSTNAME}`);
+}
+
+function getAllowedOriginGroup(origin) {
   const url = new URL(origin);
-  if (url.origin === new URL(DEFAULT_SAAS_ORIGIN).origin) return true;
-  return LOCAL_SAAS_HOSTNAMES.has(url.hostname);
+  if (isAibigtreeHostname(url.hostname)) return "aibigtree";
+  if (LOCAL_SAAS_HOSTNAMES.has(url.hostname)) return "local";
+  return "";
+}
+
+function isAllowedSaasOrigin(origin) {
+  return Boolean(getAllowedOriginGroup(origin));
 }
 
 function getSaasOrigin(context = {}, endpoint = "") {
@@ -47,7 +58,11 @@ function getSaasOrigin(context = {}, endpoint = "") {
   const endpointOrigin = getEndpointOrigin(endpoint);
   const origin = contextOrigin || endpointOrigin || DEFAULT_SAAS_ORIGIN;
 
-  if (endpointOrigin && endpointOrigin !== origin) {
+  if (
+    endpointOrigin &&
+    endpointOrigin !== origin &&
+    getAllowedOriginGroup(endpointOrigin) !== getAllowedOriginGroup(origin)
+  ) {
     throw new AppError("SaaS 接口地址与平台域名不一致。", 400);
   }
   if (!isAllowedSaasOrigin(origin)) {

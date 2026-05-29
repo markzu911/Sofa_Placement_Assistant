@@ -133,13 +133,15 @@ function setMessage(message, isError = false) {
 function getSaasContextFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const toolIdFromPath = getToolIdFromPath();
+  const userId = params.get("userId") || params.get("userid") || params.get("user_id") || params.get("uid") || "";
+  const toolId = params.get("toolId") || params.get("toolid") || params.get("tool_id") || toolIdFromPath || "";
   return {
-    userId: params.get("userId") || params.get("userid") || params.get("user_id") || params.get("uid") || "",
-    toolId: params.get("toolId") || params.get("toolid") || params.get("tool_id") || toolIdFromPath || "",
+    userId,
+    toolId,
     saasOrigin:
       params.get("saasOrigin") ||
       params.get("saas_origin") ||
-      (toolIdFromPath ? window.location.origin : ""),
+      (userId && toolId ? window.location.origin : ""),
     launchUrl: params.get("launchUrl") || params.get("launch_url") || "",
     verifyUrl: params.get("verifyUrl") || params.get("verify_url") || "",
     consumeUrl: params.get("consumeUrl") || params.get("consume_url") || "",
