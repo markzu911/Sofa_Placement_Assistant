@@ -1,7 +1,29 @@
 const { AppError, fetchWithTimeout } = require("./_runtime.cjs");
 const { extractGeneratedImage } = require("./_shared.cjs");
+const { GoogleGenAI } = require("@google/genai");
 
-const GEMINI_TIMEOUT_MS = 120000;
+const GEMINI_TIMEOUT_MS = 110000;
+
+function withTimeout(promise, timeoutMs = GEMINI_TIMEOUT_MS, message = "Gemini 请求超时（110s），请压缩参考图或选择 2K 后重试。") {
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new AppError(message, 504)), timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
+function buildSdkGenerateRequest({ ai, geminiRequest }) {
+  const config = geminiRequest.config || geminiRequest.generationConfig || {};
+  return {
+    model: ai.model,
+    contents: geminiRequest.contents,
+    config: {
+      imageConfig: config.imageConfig,
+      safetySettings: config.safetySettings || geminiRequest.safetySettings,
+    },
+  };
+}
 
 function toOpenAiImageContent(inlineData) {
   const mimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
@@ -16,7 +38,7 @@ function toOpenAiImageContent(inlineData) {
 
 function buildGatewayMessages(geminiRequest) {
   const content = [];
-  const contents = Array.isArray(geminiRequest.contents) ? geminiRequest.contents : [];
+  const contents = Array.isArray(geminiRequest.contents) ? geminiRequest.contents : [geminiRequest.contents];
 
   for (const item of contents) {
     const parts = item && Array.isArray(item.parts) ? item.parts : [];
@@ -138,26 +160,14 @@ async function readJsonOrRaw(response) {
 }
 
 async function callNativeGemini({ ai, geminiRequest }) {
-  const response = await fetchWithTimeout(
-    `${ai.baseUrl}/${ai.model}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": ai.apiKey,
-      },
-      body: JSON.stringify(geminiRequest),
-    },
-    GEMINI_TIMEOUT_MS,
-    "Gemini 请求超时（120s）",
-  );
-
-  const { responseJson, responseText } = await readJsonOrRaw(response);
-  if (!response.ok) {
-    throw new AppError(`Gemini API 返回 ${response.status}: ${getErrorMessage(responseJson, responseText)}`, response.status || 502);
+  try {
+    const client = new GoogleGenAI({ apiKey: ai.apiKey });
+    const response = await withTimeout(client.models.generateContent(buildSdkGenerateRequest({ ai, geminiRequest })));
+    return extractGeneratedImage(response);
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(error.message || "Gemini 生图失败。", 502);
   }
-
-  return extractGeneratedImage(responseJson);
 }
 
 async function callVercelAiGateway({ ai, geminiRequest }) {
@@ -185,7 +195,7 @@ async function callVercelAiGateway({ ai, geminiRequest }) {
       }),
     },
     GEMINI_TIMEOUT_MS,
-    "Vercel AI Gateway 请求超时（120s）",
+    "Vercel AI Gateway 请求超时（110s）",
   );
 
   const { responseJson, responseText } = await readJsonOrRaw(response);
