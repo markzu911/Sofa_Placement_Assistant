@@ -190,7 +190,7 @@ async function loadSaasLaunch() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(getSaasRequestContext()),
     });
-    const result = await response.json();
+    const result = await readResponsePayload(response, "SaaS 启动失败。");
     if (!response.ok || result.success === false) {
       throw new Error(result.error || result.message || "SaaS 启动失败。");
     }
@@ -438,6 +438,25 @@ function buildPayload() {
   };
 }
 
+async function readResponsePayload(response, fallbackMessage = "请求失败。") {
+  const text = await response.text();
+  let result = {};
+  try {
+    result = text ? JSON.parse(text) : {};
+  } catch {
+    result = {};
+  }
+
+  if (response.ok) return result;
+  if (response.status === 504) {
+    throw new Error("生成超时：线上工具代理等待时间不足，请稍后重试或提高平台代理超时时间。");
+  }
+  if (response.status === 502) {
+    throw new Error(result.error || result.message || "生成服务暂时不可用，请稍后重试。");
+  }
+  throw new Error(result.error || result.message || fallbackMessage);
+}
+
 async function generateImage(event) {
   event.preventDefault();
   const payload = buildPayload();
@@ -461,10 +480,7 @@ async function generateImage(event) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.error || "生成失败。");
-    }
+    const result = await readResponsePayload(response, "生成失败。");
     const resultUrl = result.url || result.dataUrl;
     state.resultDataUrl = resultUrl;
     state.resultMeta = {
