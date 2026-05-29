@@ -2,11 +2,17 @@
   "name": "sofa-placement-assistant",
   "version": "2.0.0",
   "private": true,
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
-    "dev": "node local-dev.mjs",
-    "start": "node local-dev.mjs",
-    "check": "node --check api/_shared.js && node --check api/_runtime.js && node --check api/_saas.js && node --check api/config.js && node --check api/generate.js && node --check api/launch.js && node --check app.js && node --check local-dev.mjs"
+    "dev": "next dev -H 0.0.0.0 -p 8002",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0 -p 8002",
+    "check": "next build"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "engines": {
     "node": ">=18"

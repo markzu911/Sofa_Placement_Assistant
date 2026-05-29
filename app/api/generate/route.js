@@ -1,10 +1,11 @@
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 const {
   DEFAULT_MODEL,
   buildGeminiRequest,
   extractGeneratedImage,
-  readJsonBody,
-  sendJson,
-} = require("./_shared");
+} = require("../../../api/_shared.cjs");
 const {
   buildResultFileName,
   getToolContext,
@@ -12,21 +13,37 @@ const {
   imageBufferFromDataUrl,
   saveResultImageToSaas,
   verifyBeforeGenerate,
-} = require("./_saas");
-const { AppError, createLogger, createRequestId, fetchWithTimeout } = require("./_runtime");
+} = require("../../../api/_saas.cjs");
+const { AppError, createLogger, createRequestId, fetchWithTimeout } = require("../../../api/_runtime.cjs");
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_TIMEOUT_MS = 120000;
 
-module.exports = async function handler(req, res) {
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 120;
+
+function json(payload, status = 200) {
+  return Response.json(payload, {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+async function readJsonPayload(request) {
+  try {
+    return await request.json();
+  } catch {
+    throw new AppError("请求 JSON 无效。", 400);
+  }
+}
+
+export async function POST(request) {
   const requestId = createRequestId();
   const requestStartedAt = Date.now();
   let logger = createLogger({ requestId });
-
-  if (req.method !== "POST") {
-    sendJson(res, 405, { error: "Method not allowed" });
-    return;
-  }
 
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_IMAGE_MODEL || DEFAULT_MODEL;
@@ -37,12 +54,11 @@ module.exports = async function handler(req, res) {
       durationMs: Date.now() - requestStartedAt,
       errorMessage: "未配置 GEMINI_API_KEY",
     });
-    sendJson(res, 500, { error: "未配置 GEMINI_API_KEY。请在 Vercel 环境变量或本地 .env 中设置。" });
-    return;
+    return json({ error: "未配置 GEMINI_API_KEY。请在 Vercel 环境变量或本地 .env 中设置。" }, 500);
   }
 
   try {
-    const payload = await readJsonBody(req);
+    const payload = await readJsonPayload(request);
     const toolContext = getToolContext(payload);
     logger = createLogger({
       requestId,
@@ -121,7 +137,7 @@ module.exports = async function handler(req, res) {
       recordId: savedImage.recordId,
     });
 
-    sendJson(res, 200, {
+    return json({
       model,
       mimeType,
       text: image.text,
@@ -140,6 +156,6 @@ module.exports = async function handler(req, res) {
       durationMs: Date.now() - requestStartedAt,
       errorMessage: error.message || "生成失败。",
     });
-    sendJson(res, statusCode, { error: error.message || "生成失败。", requestId });
+    return json({ error: error.message || "生成失败。", requestId }, statusCode);
   }
-};
+}

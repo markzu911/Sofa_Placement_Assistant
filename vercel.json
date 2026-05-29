@@ -1,7 +1,10 @@
 {
   "version": 2,
   "functions": {
-    "api/generate.js": {
+    "app/api/generate/route.js": {
+      "maxDuration": 120
+    },
+    "app/api/launch/route.js": {
       "maxDuration": 120
     }
   },
@@ -9,18 +12,6 @@
     {
       "source": "/ai-tool/:toolId/api/:path*",
       "destination": "/api/:path*"
-    },
-    {
-      "source": "/ai-tool/:toolId",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/ai-tool/:toolId/:path*",
-      "destination": "/:path*"
-    },
-    {
-      "source": "/",
-      "destination": "/index.html"
     }
   ],
   "headers": [

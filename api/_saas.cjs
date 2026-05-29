@@ -1,5 +1,5 @@
 const DEFAULT_SAAS_ORIGIN = "https://aibigtree.com";
-const { AppError, fetchWithTimeout } = require("./_runtime");
+const { AppError, fetchWithTimeout } = require("./_runtime.cjs");
 
 const SAAS_TIMEOUT_MS = 20000;
 const OSS_TIMEOUT_MS = 60000;
