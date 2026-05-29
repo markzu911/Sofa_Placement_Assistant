@@ -127,10 +127,18 @@ async function readJsonResponse(res, defaultStatusCode = 400) {
   }
 
   if (!res.ok || data.success === false) {
-    throw new AppError(data.error || data.message || `SaaS 请求失败: ${res.status}`, defaultStatusCode);
+    throw new AppError(formatMessage(data.error || data.message || `SaaS 请求失败: ${res.status}`), defaultStatusCode);
   }
 
   return data;
+}
+
+function formatMessage(value, fallback = "请求失败。") {
+  if (typeof value === "string" && value.trim()) return value;
+  if (value && typeof value === "object") {
+    return value.message || value.error || value.msg || JSON.stringify(value);
+  }
+  return fallback;
 }
 
 async function postSaas(context, pathname, body, options = {}) {
@@ -205,7 +213,16 @@ function buildResultFileName(payload, mimeType) {
 }
 
 function pickRenderableImageUrl(context, candidates) {
-  const values = candidates.map((value) => String(value || "").trim()).filter(Boolean);
+  const values = candidates
+    .flatMap((value) => {
+      if (!value) return [];
+      if (typeof value === "string") return [value.trim()];
+      if (typeof value === "object") return [value.url, value.readUrl, value.publicUrl, value.href].filter(Boolean);
+      return [];
+    })
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .filter((value) => value !== "[object Object]");
 
   for (const value of values) {
     if (/^(https?:|data:image\/)/i.test(value)) return value;
@@ -216,6 +233,11 @@ function pickRenderableImageUrl(context, candidates) {
   }
 
   return values[0] || "";
+}
+
+function getCommitImage(commit) {
+  const data = commit && typeof commit.data === "object" ? commit.data : {};
+  return commit.image || data.image || data || {};
 }
 
 async function saveResultImageToSaas({ context, imageBuffer, mimeType, fileName, logger }) {
@@ -343,8 +365,16 @@ async function saveResultImageToSaas({ context, imageBuffer, mimeType, fileName,
     throw error;
   }
 
-  if (!commit.savedToRecords && !(commit.image && commit.image.savedToRecords)) {
-    const error = new AppError(commit.error || "图片入库失败。", 502);
+  const image = getCommitImage(commit);
+  const savedToRecords =
+    image.savedToRecords !== undefined
+      ? image.savedToRecords
+      : commit.savedToRecords !== undefined
+        ? commit.savedToRecords
+        : commit.success === true;
+
+  if (!savedToRecords) {
+    const error = new AppError(formatMessage(commit.error || commit.message, "图片入库失败。"), 502);
     logger?.log("upload.commit.fail", {
       level: "error",
       durationMs: Date.now() - startedAt,
@@ -354,19 +384,25 @@ async function saveResultImageToSaas({ context, imageBuffer, mimeType, fileName,
     throw error;
   }
 
-  const image = commit.image || {};
   const imageUrl = pickRenderableImageUrl(context, [
     image.url,
+    image.readUrl,
+    image.publicUrl,
     commit.url,
+    commit.readUrl,
+    commit.publicUrl,
+    commit.data && commit.data.url,
+    commit.data && commit.data.readUrl,
+    commit.data && commit.data.publicUrl,
     token.readUrl,
     token.publicUrl,
   ]);
   const savedImage = {
-    recordId: image.recordId || commit.recordId,
+    recordId: image.recordId || commit.recordId || (commit.data && commit.data.recordId),
     url: imageUrl,
-    fileName: image.fileName || commit.fileName || token.fileName || token.objectKey,
+    fileName: image.fileName || commit.fileName || (commit.data && commit.data.fileName) || token.fileName || token.objectKey,
     fileSize: image.fileSize || imageBuffer.byteLength,
-    savedToRecords: image.savedToRecords !== undefined ? image.savedToRecords : commit.savedToRecords,
+    savedToRecords,
   };
 
   logger?.log("upload.commit.success", {

@@ -562,18 +562,36 @@ async function readResponsePayload(response, fallbackMessage = "请求失败。"
   }
 
   if (response.ok) return result;
+  const message = getResponseMessage(result, fallbackMessage);
   if (response.status === 413) {
     throw new Error("图片请求体过大：已超过线上代理限制，请换一张更小的产品图或降低图片尺寸后重试。");
   }
   if (response.status === 504) {
-    const error = new Error(result.error || result.message || "生成超时：模型处理超过网关等待时间，正在准备重试。");
+    const error = new Error(message || "生成超时：模型处理超过网关等待时间，正在准备重试。");
     error.status = 504;
     throw error;
   }
   if (response.status === 502) {
-    throw new Error(result.error || result.message || "生成服务暂时不可用，请稍后重试。");
+    throw new Error(message || "生成服务暂时不可用，请稍后重试。");
   }
-  throw new Error(result.error || result.message || fallbackMessage);
+  throw new Error(message);
+}
+
+function getResponseMessage(result, fallbackMessage) {
+  const value = result?.error || result?.message || fallbackMessage;
+  if (typeof value === "string" && value.trim() && value !== "[object Object]") return value;
+  if (value && typeof value === "object") {
+    return value.message || value.error || value.msg || JSON.stringify(value);
+  }
+  return fallbackMessage;
+}
+
+function pickResultUrl(result) {
+  const candidates = [result?.url, result?.dataUrl, result?.image?.url];
+  for (const value of candidates) {
+    if (typeof value === "string" && /^(https?:|data:image\/|\/)/i.test(value)) return value;
+  }
+  return "";
 }
 
 async function postGeneratePayload(payload, timeoutMs) {
@@ -635,7 +653,10 @@ async function generateImage(event) {
         generateRequestTimeoutMs,
       );
     }
-    const resultUrl = result.url || result.dataUrl;
+    const resultUrl = pickResultUrl(result);
+    if (!resultUrl) {
+      throw new Error("图片已生成并入库，但接口未返回可预览地址，请在我的图片中查看。");
+    }
     state.resultDataUrl = resultUrl;
     state.resultMeta = {
       recordId: result.recordId || result.image?.recordId || "",

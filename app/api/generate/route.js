@@ -26,6 +26,10 @@ export const maxDuration = 120;
 const SYNC_RESPONSE_BUDGET_MS = 112000;
 const SAVE_RESULT_MIN_BUDGET_MS = 18000;
 
+function isRenderableImageUrl(value) {
+  return /^(https?:|data:image\/|\/)/i.test(String(value || ""));
+}
+
 function json(payload, status = 200) {
   return Response.json(payload, {
     status,
@@ -140,25 +144,34 @@ export async function POST(request) {
       recordId: savedImage.recordId,
     });
 
+    const resultUrl = isRenderableImageUrl(savedImage.url) ? savedImage.url : image.dataUrl;
+
     return json({
       model,
       mimeType,
       text: image.text,
-      dataUrl: savedImage.url,
+      dataUrl: resultUrl,
       recordId: savedImage.recordId,
-      url: savedImage.url,
+      url: resultUrl,
       fileName: savedImage.fileName,
       fileSize: savedImage.fileSize,
       savedToRecords: savedImage.savedToRecords,
-      image: savedImage,
+      image: {
+        ...savedImage,
+        url: resultUrl,
+      },
     });
   } catch (error) {
     const statusCode = error instanceof AppError ? error.statusCode : 400;
+    const errorMessage =
+      typeof error.message === "string" && error.message !== "[object Object]"
+        ? error.message
+        : "生成失败，请稍后重试。";
     logger.log("generate.fail", {
       level: "error",
       durationMs: Date.now() - requestStartedAt,
-      errorMessage: error.message || "生成失败。",
+      errorMessage,
     });
-    return json({ error: error.message || "生成失败。", requestId }, statusCode);
+    return json({ error: errorMessage, requestId }, statusCode);
   }
 }
