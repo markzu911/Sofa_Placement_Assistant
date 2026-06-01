@@ -57,7 +57,7 @@ const STYLE_PRESETS = {
   french: "法式复古：线脚墙面、柔和窗光、复古地毯与精致软装。",
   loft: "都市 Loft：微水泥、黑色金属、开放式空间，硬朗但有生活温度。",
   coastal: "海岸度假：浅色织物、藤编、自然光、蓝绿色点缀，清爽松弛。",
-  custom: "自定义风格：以参考图 2 的房间风格为主，提取其色调、材质、光线、软装气质和整体氛围。",
+  custom: "自定义场景：Reference Image 2 是用户指定的原始房间场景，需要尽量保持原图的空间结构、门窗、墙地面、已有物品、材质、采光、相机视角和整体氛围，只把产品自然放入合理位置。",
 };
 
 const VIEW_PRESETS = {
@@ -153,8 +153,9 @@ function normalizeAnalysisText(value) {
 
 function buildSofaAnalysisRequest(payload) {
   const productImage = parseDataUrl(payload.productImage, "家具产品图");
-  const styleReferenceImage = parseDataUrl(payload.styleReferenceImage, "房间风格参考图");
+  const styleReferenceImage = parseDataUrl(payload.styleReferenceImage, "房间/场景参考图");
   const styleKey = String(payload.sceneStyle || "modern");
+  const isCustomScene = styleKey === "custom" && Boolean(styleReferenceImage);
   const styleLine = STYLE_PRESETS[styleKey] || STYLE_PRESETS.modern;
 
   if (!productImage) {
@@ -172,17 +173,23 @@ function buildSofaAnalysisRequest(payload) {
   parts.push({
     text: [
       "请用中文输出结构化、可执行的沙发摆放分析。Reference Image 1 是必须保留外观的沙发产品。",
-      styleReferenceImage
-        ? "Reference Image 2 是房间/风格参考，只用于分析空间感、材质、光线、窗户/墙面线索和装修气质，不作为直接修改底图。"
-        : "没有房间参考图，请结合家具特征和用户选择风格判断最合适的室内功能、房间结构和摆位。",
+      isCustomScene
+        ? "Reference Image 2 是用户指定的原始房间场景。请分析如何在尽量保持原图场景不变的前提下，把 Reference Image 1 产品放到最合理的位置。"
+        : styleReferenceImage
+          ? "Reference Image 2 是房间/风格参考，只用于分析空间感、材质、光线、窗户/墙面线索和装修气质，不作为直接修改底图。"
+          : "没有房间参考图，请结合家具特征和用户选择风格判断最合适的室内功能、房间结构和摆位。",
       `用户选择风格：${styleLine}`,
       "",
       "请严格按以下字段输出，内容要短但具体：",
       "1. 沙发类型与体量：例如单人/双人/转角/躺椅/功能沙发、视觉重量、高低比例。",
       "2. 必须保留的视觉特征：颜色、材质、纹理、缝线、扶手、靠背、坐垫、脚架、脚踏、功能按钮、五金件、整体轮廓。",
-      "3. 适配空间判断：不要使用用户预设空间，因为界面没有人工空间选择。请根据产品和参考图/风格自行判断最合理的室内空间功能、房间结构和氛围，并说明原因。",
-      "4. 空间线索判断：如果有 Reference Image 2，请提取可用墙面、窗光、地面透视、通道、视觉中心和不应遮挡的位置；如果没有参考图，请基于产品比例、功能和风格自行推断房间结构。",
-      "5. 摆放决策：不要套用固定候选位置。请根据产品体量、朝向、空间线索、光线和动线，明确建议的落点、朝向、离墙/离窗/离茶几/离通道关系，并说明原因。",
+      isCustomScene
+        ? "3. 原图场景保留清单：列出必须保持不变的门窗、墙地面、天花、已有家具/软装/装饰、采光方向、相机高度、焦距感、透视和画面氛围。"
+        : "3. 适配空间判断：不要使用用户预设空间，因为界面没有人工空间选择。请根据产品和参考图/风格自行判断最合理的室内空间功能、房间结构和氛围，并说明原因。",
+      isCustomScene
+        ? "4. 原图空间线索判断：提取可用地面、可用墙边/窗边/角落、通道、门柜开启区、已有家具关系、视觉中心和不应遮挡的位置。"
+        : "4. 空间线索判断：如果有 Reference Image 2，请提取可用墙面、窗光、地面透视、通道、视觉中心和不应遮挡的位置；如果没有参考图，请基于产品比例、功能和风格自行推断房间结构。",
+      "5. 摆放决策：不要套用固定候选位置。请根据产品体量、朝向、空间线索、光线和动线，明确建议的落点、朝向、离墙/离窗/离茶几/离通道关系，并说明原因；自定义场景下必须优先不破坏原图结构和已有物品关系。",
       "6. 远/中/近景延展：同一个摆放决策下，分别说明远景、中景、近景该如何拉开或靠近相机，而不是改变沙发位置、比例或角度。",
       "7. 透视与落地要求：相机高度、地面接触、阴影、反射、遮挡、避免穿模和动线阻挡。",
       "8. 生成时要避免的问题：列出最容易出错的点。",
@@ -202,6 +209,7 @@ function buildSofaAnalysisRequest(payload) {
 
 function buildPrompt(payload, hasStyleReferenceImage) {
   const styleKey = String(payload.sceneStyle || "modern");
+  const isCustomScene = styleKey === "custom" && hasStyleReferenceImage;
   const viewKey = String(payload.viewType || "wide");
   const includeModel = Boolean(payload.includeModel);
   const aspectRatio = String(payload.aspectRatio || "4:3");
@@ -211,8 +219,10 @@ function buildPrompt(payload, hasStyleReferenceImage) {
   const modelLine = includeModel
     ? "MODEL: Add exactly one adult lifestyle model naturally interacting with the sofa: sitting on it, leaning back, reading, drinking coffee, or resting. The model must have realistic anatomy and must stay secondary, never covering the product's core selling points such as silhouette, armrests, backrest, cushions, seams, material texture, buttons, metal details, or legs."
     : "MODEL: No people, bodies, hands, faces, silhouettes, reflections of people, or human figures. Create a clean furniture display image that highlights the sofa itself.";
-  const styleReferenceLine = hasStyleReferenceImage
-    ? "Reference image 2 is ONLY a loose room-style reference. Borrow palette, material mood, lighting, decor taste, and atmosphere. Do not copy its exact room, layout, architecture, furniture positions, camera angle, or perspective."
+  const styleReferenceLine = isCustomScene
+    ? "Reference image 2 is the user's original room scene to preserve. Keep its architecture, room layout, doors, windows, wall/floor/ceiling materials, existing furniture, decor objects, lighting direction, camera height, lens feel, perspective, color temperature, exposure, and atmosphere as unchanged as possible. Do not redesign the room, replace existing objects, add unrelated new decor, or move existing furniture; only integrate Reference Image 1 product into a suitable usable position."
+    : hasStyleReferenceImage
+      ? "Reference image 2 is ONLY a loose room-style reference. Borrow palette, material mood, lighting, decor taste, and atmosphere. Do not copy its exact room, layout, architecture, furniture positions, camera angle, or perspective."
     : "No room-style reference image is provided.";
   const sofaAnalysis = normalizeAnalysisText(payload.sofaAnalysis);
 
@@ -222,7 +232,9 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     "",
     "REFERENCE ORDER:",
     "Reference Image 1 = exact furniture product. It is the immutable product identity source.",
-    hasStyleReferenceImage
+    isCustomScene
+      ? "Reference Image 2 = original room scene to preserve. It is the immutable scene identity source."
+      : hasStyleReferenceImage
       ? "Reference Image 2 = room style mood only. It is not a background plate."
       : "Only Reference Image 1 is provided.",
     "",
@@ -237,9 +249,16 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     sofaAnalysis ? null : "Before generating, visually analyze the uploaded product and optional room reference, then choose the placement from product scale, facing direction, floor plane, wall/window/light cues, and walking clearance. Do not use a fixed left/right/wall/window/corner template.",
     "",
     "SCENE:",
-    "No user-selected space type is provided. Infer the most suitable room type and room structure from the pre-generation analysis, uploaded product, optional room reference, and selected style.",
-    `Create a new original interior scene in this style: ${styleLine}`,
+    isCustomScene
+      ? "CUSTOM SCENE MODE: Preserve Reference Image 2 as the original room scene. The result should look like the product naturally belongs in that exact room, not like a mismatched product cutout or a newly redesigned room."
+      : "No user-selected space type is provided. Infer the most suitable room type and room structure from the pre-generation analysis, uploaded product, optional room reference, and selected style.",
+    isCustomScene
+      ? `Keep the uploaded original room scene stable while matching this mode: ${styleLine}`
+      : `Create a new original interior scene in this style: ${styleLine}`,
     styleReferenceLine,
+    isCustomScene
+      ? "For custom scene mode, keep the original scene stable: preserve doors, windows, wall/floor/ceiling junctions, existing furniture, decor, rugs, lamps, plants, artwork, curtains, visible openings, view outside windows, natural light, shadows, perspective, grain, sharpness, and color temperature. Do not add extra furniture or decorations. Do not remove, repaint, remodel, crop away, or rearrange the original room elements unless tiny occlusion is physically required by the inserted product."
+      : null,
     "Automatically infer the space perspective, floor angle, horizon height, wall position, window position, light direction, furniture scale, and walking clearance from the placement analysis before placing the sofa.",
     "Place the sofa in the specific usable position implied by the analysis. The inferred room function must feel intentional, physically plausible, and coherent with the product, reference image, and style.",
     "Render product and room as one coherent photographed scene with shared perspective, lighting, shadows, grain, depth of field, contact shadows, and floor contact.",
@@ -256,6 +275,9 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     `Aspect ratio: ${aspectRatio}. Single image output.`,
     "",
     "NEGATIVE RULES: no extra sofa, no duplicate product, no wrong product, no changed product style/color/material/texture/seams/arms/back/cushions/footrest/buttons/hardware/outline, no distorted human body, no messy background, no text, no watermark, no price tag, no logo overlay, no low resolution, no over-filtered look, no cartoon style, no rigid centered catalog staging, no malformed furniture, no pasted cutout edge, no floating product, no clipping, no deformation, no mismatched perspective.",
+    isCustomScene
+      ? "CUSTOM SCENE NEGATIVE RULES: do not redesign the uploaded room, do not change doors/windows/walls/floor/ceiling/existing furniture/decor/light direction/camera perspective, do not add new unrelated furniture or decorations, do not make the product look out of place, oversized, undersized, pasted, floating, or mismatched with the room."
+      : null,
     "Output the image only.",
   ].filter((line) => line !== null && line !== undefined).join("\n");
 }
@@ -272,14 +294,14 @@ function buildGeminiRequest(payload) {
   }
 
   const productImage = parseDataUrl(payload.productImage, "家具产品图");
-  const styleReferenceImage = parseDataUrl(payload.styleReferenceImage, "房间风格参考图");
+  const styleReferenceImage = parseDataUrl(payload.styleReferenceImage, "房间/场景参考图");
   const sceneStyle = String(payload.sceneStyle || "modern");
 
   if (!productImage) {
     throw new Error("为了尽量保持原产品样式不变，请先上传家具产品图。");
   }
   if (sceneStyle === "custom" && !styleReferenceImage) {
-    throw new Error("已选择自定义风格，请上传房间风格参考图。");
+    throw new Error("已选择自定义场景，请上传房间/场景参考图。");
   }
 
   const hasStyleReferenceImage = Boolean(styleReferenceImage);

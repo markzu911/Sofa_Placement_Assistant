@@ -106,7 +106,7 @@
               <label class="style-option">
                 <input type="radio" name="sceneStyle" value="custom" />
                 <span class="swatch custom" aria-hidden="true"></span>
-                <span>自定义风格</span>
+                <span>自定义场景</span>
               </label>
             </div>
 
@@ -114,14 +114,14 @@
               <input id="styleReferenceImage" type="file" accept="image/png,image/jpeg,image/webp" />
               <img id="styleReferencePreview" alt="" />
               <span class="upload-copy">
-                <span class="upload-title">房间风格参考图</span>
+                <span class="upload-title" id="styleReferenceTitle">房间/场景参考图</span>
                 <span class="upload-meta" id="styleReferenceMeta">可选，PNG / JPG / WEBP，8MB 以内</span>
               </span>
             </label>
 
             <div class="hint-row">
               <span class="hint-dot" aria-hidden="true"></span>
-              <span>只参考色调、材质、光线和软装气质，不还原原房间</span>
+              <span id="styleReferenceHint">普通风格只参考气质；自定义场景会尽量保持原图场景不变</span>
             </div>
           </section>
 

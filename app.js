@@ -37,7 +37,7 @@ const labels = {
     french: "法式复古",
     loft: "都市 Loft",
     coastal: "海岸度假",
-    custom: "自定义风格",
+    custom: "自定义场景",
   },
   view: {
     wide: "远景图",
@@ -59,6 +59,8 @@ const elements = {
   productPreview: document.querySelector("#productPreview"),
   styleReferencePreview: document.querySelector("#styleReferencePreview"),
   productMeta: document.querySelector("#productMeta"),
+  styleReferenceTitle: document.querySelector("#styleReferenceTitle"),
+  styleReferenceHint: document.querySelector("#styleReferenceHint"),
   styleReferenceMeta: document.querySelector("#styleReferenceMeta"),
   imageSize: document.querySelector("#imageSize"),
   aspectRatio: document.querySelector("#aspectRatio"),
@@ -397,7 +399,7 @@ function handleAnalysisEdit() {
 async function analyzeSofaPlacement({ force = false } = {}) {
   if (!shouldAnalyzePlacement()) {
     const message = isCustomStyle() && !state.styleReferenceImage
-      ? "自定义风格需要先上传房间风格参考图。"
+      ? "自定义场景需要先上传房间/场景参考图。"
       : "请先上传家具产品图，并从平台入口打开工具。";
     state.analysisError = true;
     setMessage(message, true);
@@ -562,7 +564,7 @@ async function handleFile(input, key, preview, tile, meta) {
       updatePreviewTitle();
     } else {
       resetSofaAnalysis();
-      setMessage(image ? "房间风格参考图已添加，请重新 AI 分析。" : "");
+      setMessage(image ? "房间/场景参考图已添加，请重新 AI 分析。" : "");
     }
     updateSummary();
     updateActionState();
@@ -625,8 +627,12 @@ function updateStyleReferenceState() {
   elements.styleReferenceMeta.textContent = state.styleReferenceImage
     ? `${state.styleReferenceImage.name} · ${formatFileSize(state.styleReferenceImage.size)}`
     : customStyle
-      ? "必传，上传后按参考图自定义风格"
+      ? "必传，生成时保持原图场景"
       : defaultMetaText.styleReferenceImage;
+  elements.styleReferenceTitle.textContent = customStyle ? "自定义场景原图" : "房间/场景参考图";
+  elements.styleReferenceHint.textContent = customStyle
+    ? "保持原图场景结构、门窗、墙地面、已有物品和光线，只把产品放到合理位置"
+    : "只参考色调、材质、光线和软装气质，不还原原房间";
   elements.styleReferenceDrop.classList.toggle("is-required", customStyle);
   updatePreviewTitle();
   updateSummary();
@@ -797,7 +803,7 @@ async function generateImage(event) {
     return;
   }
   if (payload.sceneStyle === "custom" && !payload.styleReferenceImage) {
-    setMessage("请选择自定义风格参考图。", true);
+    setMessage("请选择自定义场景原图。", true);
     return;
   }
   if (!hasSaasContext()) {
