@@ -57,7 +57,7 @@ const STYLE_PRESETS = {
   french: "法式复古：线脚墙面、柔和窗光、复古地毯与精致软装。",
   loft: "都市 Loft：微水泥、黑色金属、开放式空间，硬朗但有生活温度。",
   coastal: "海岸度假：浅色织物、藤编、自然光、蓝绿色点缀，清爽松弛。",
-  custom: "自定义场景：Reference Image 2 是用户指定的原始房间场景，需要尽量保持原图的空间结构、门窗、墙地面、已有物品、材质、采光、相机视角和整体氛围，只把产品自然放入合理位置。",
+  custom: "自定义场景：原始房间场景是必须优先保持的场景身份来源，需要尽量保持原图的空间结构、门窗、墙地面、已有物品、材质、采光、相机视角和整体氛围，只把产品自然放入合理位置。",
 };
 
 const VIEW_PRESETS = {
@@ -161,20 +161,28 @@ function buildSofaAnalysisRequest(payload) {
   if (!productImage) {
     throw new Error("为了尽量保持原产品样式不变，请先上传家具产品图。");
   }
+  if (styleKey === "custom" && !styleReferenceImage) {
+    throw new Error("已选择自定义场景，请上传房间/场景参考图。");
+  }
 
-  const parts = [
-    { inlineData: { mimeType: productImage.mimeType, data: productImage.data } },
-  ];
-
-  if (styleReferenceImage) {
+  const parts = [];
+  if (isCustomScene) {
     parts.push({ inlineData: { mimeType: styleReferenceImage.mimeType, data: styleReferenceImage.data } });
+    parts.push({ inlineData: { mimeType: productImage.mimeType, data: productImage.data } });
+  } else {
+    parts.push({ inlineData: { mimeType: productImage.mimeType, data: productImage.data } });
+    if (styleReferenceImage) {
+      parts.push({ inlineData: { mimeType: styleReferenceImage.mimeType, data: styleReferenceImage.data } });
+    }
   }
 
   parts.push({
     text: [
-      "请用中文输出结构化、可执行的沙发摆放分析。Reference Image 1 是必须保留外观的沙发产品。",
       isCustomScene
-        ? "Reference Image 2 是用户指定的原始房间场景。请分析如何在尽量保持原图场景不变的前提下，把 Reference Image 1 产品放到最合理的位置。"
+        ? "请用中文输出结构化、可执行的自定义场景摆放分析。Reference Image 1 是必须尽量保持不变的原始房间场景；Reference Image 2 是必须保留外观的沙发产品。"
+        : "请用中文输出结构化、可执行的沙发摆放分析。Reference Image 1 是必须保留外观的沙发产品。",
+      isCustomScene
+        ? "请分析如何在尽量保持 Reference Image 1 原图场景不变的前提下，把 Reference Image 2 产品放到最合理的位置。"
         : styleReferenceImage
           ? "Reference Image 2 是房间/风格参考，只用于分析空间感、材质、光线、窗户/墙面线索和装修气质，不作为直接修改底图。"
           : "没有房间参考图，请结合家具特征和用户选择风格判断最合适的室内功能、房间结构和摆位。",
@@ -213,6 +221,8 @@ function buildSofaAnalysisRequest(payload) {
 function buildPrompt(payload, hasStyleReferenceImage) {
   const styleKey = String(payload.sceneStyle || "modern");
   const isCustomScene = styleKey === "custom" && hasStyleReferenceImage;
+  const productReference = isCustomScene ? "Reference Image 2" : "Reference Image 1";
+  const sceneReference = isCustomScene ? "Reference Image 1" : "Reference Image 2";
   const viewKey = String(payload.viewType || "wide");
   const includeModel = Boolean(payload.includeModel);
   const aspectRatio = String(payload.aspectRatio || "4:3");
@@ -221,18 +231,18 @@ function buildPrompt(payload, hasStyleReferenceImage) {
   const viewLine = VIEW_PRESETS[viewKey] || VIEW_PRESETS.wide;
   const modelLine = includeModel
     ? isCustomScene
-      ? "MODEL: Add exactly one adult lifestyle model only on the newly inserted Reference Image 1 product, naturally seated with body weight on the seat cushion and realistic contact with the recliner. The model must not sit on, replace, cover, or alter any existing furniture in Reference Image 2. Keep the person secondary and do not let the body hide the product's armrests, backrest, cushions, seams, controls, leather texture, legs/base, or overall silhouette."
+      ? `MODEL: Add exactly one adult lifestyle model only on the newly inserted ${productReference} product, naturally seated with body weight on the seat cushion and realistic contact with the recliner. The model must not sit on, replace, cover, or alter any existing furniture in ${sceneReference}. Keep the person secondary and do not let the body hide the product's armrests, backrest, cushions, seams, controls, leather texture, legs/base, or overall silhouette.`
       : "MODEL: Add exactly one adult lifestyle model naturally interacting with the sofa: sitting on it, leaning back, reading, drinking coffee, or resting. The model must have realistic anatomy and must stay secondary, never covering the product's core selling points such as silhouette, armrests, backrest, cushions, seams, material texture, buttons, metal details, or legs."
     : isCustomScene
       ? "MODEL: No new people, bodies, hands, faces, silhouettes, or reflections of people. Preserve the original room scene and integrate only the uploaded furniture product."
       : "MODEL: No people, bodies, hands, faces, silhouettes, reflections of people, or human figures. Create a clean furniture display image that highlights the sofa itself.";
   const styleReferenceLine = isCustomScene
-    ? "Reference image 2 is the user's original room scene to preserve. Keep its architecture, room layout, doors, windows, wall/floor/ceiling materials, existing furniture, decor objects, lighting direction, camera height, lens feel, perspective, color temperature, exposure, and atmosphere as unchanged as possible. Do not redesign the room, replace existing objects, add unrelated new decor, or move existing furniture; only integrate Reference Image 1 product into a suitable usable position."
+    ? `${sceneReference} is the user's original room scene to preserve and is the PRIMARY image for scene identity. Keep its architecture, room layout, doors, windows, wall/floor/ceiling materials, existing furniture, decor objects, lighting direction, camera height, lens feel, perspective, color temperature, exposure, and atmosphere as unchanged as possible. Do not redesign the room, replace existing objects, add unrelated new decor, or move existing furniture; only integrate ${productReference} product into a suitable usable position.`
     : hasStyleReferenceImage
       ? "Reference image 2 is ONLY a loose room-style reference. Borrow palette, material mood, lighting, decor taste, and atmosphere. Do not copy its exact room, layout, architecture, furniture positions, camera angle, or perspective."
     : "No room-style reference image is provided.";
   const seatingRuleLine = isCustomScene
-    ? "CUSTOM SCENE SEATING RULE: Reference Image 2 may already contain sofas, chairs, benches, or other seating. Preserve every existing seating object exactly as part of the original scene. Reference Image 1 product is the only NEW seating object to add. Do not remove, replace, recolor, resize, remodel, duplicate, or transform any existing seating; do not add any additional new seating beyond the uploaded product."
+    ? `CUSTOM SCENE SEATING RULE: ${sceneReference} may already contain sofas, chairs, benches, or other seating. Preserve every existing seating object exactly as part of the original scene. ${productReference} product is the only NEW seating object to add. Do not remove, replace, recolor, resize, remodel, duplicate, or transform any existing seating; do not add any additional new seating beyond the uploaded product.`
     : "The product must be the only seating object. Do not add another sofa, recliner, armchair, chaise, bench, ottoman, dining chair, stool, or background seating group.";
   const productPlacementLine = isCustomScene
     ? "CUSTOM SCENE PRODUCT PLACEMENT: Add the uploaded product as one single-person recliner/chair with realistic scale relative to the existing sofa, coffee table, window, TV cabinet, rug, plants, and floor tiles. It must sit on an available floor area, keep walkable clearance, and avoid blocking the TV, coffee table, window, door/cabinet openings, original sofa, or main traffic path. Match the original glossy floor reflections, contact shadows, light direction, perspective, sharpness, grain, and color temperature so the product does not look out of place."
@@ -241,8 +251,8 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     ? "NEGATIVE RULES: no duplicate uploaded product, no wrong product, no changed product style/color/material/texture/seams/arms/back/cushions/footrest/buttons/hardware/outline, no removing or altering original room furniture, no changing existing sofa/chair/table/cabinet/window/wall/floor/ceiling/decor, no new unrelated furniture or decorations, no distorted human body, no messy background, no text, no watermark, no price tag, no logo overlay, no low resolution, no over-filtered look, no cartoon style, no malformed furniture, no pasted cutout edge, no floating product, no clipping, no deformation, no mismatched perspective, no oversized or undersized recliner, no blocking TV/coffee table/window/pathway."
     : "NEGATIVE RULES: no extra sofa, no duplicate product, no wrong product, no changed product style/color/material/texture/seams/arms/back/cushions/footrest/buttons/hardware/outline, no distorted human body, no messy background, no text, no watermark, no price tag, no logo overlay, no low resolution, no over-filtered look, no cartoon style, no rigid centered catalog staging, no malformed furniture, no pasted cutout edge, no floating product, no clipping, no deformation, no mismatched perspective.";
   const productIntegrationLine = isCustomScene
-    ? "Integrate Reference Image 1 as a real newly placed object in Reference Image 2. Preserve product identity, but adapt only its scene-facing perspective, light response, shadow, reflection, and tiny occlusion needed to make it physically belong in the original room."
-    : "Integrate Reference Image 1 as a real product in a newly generated room. Preserve product identity, while adapting only perspective, light response, shadow, reflection, and tiny occlusion needed for physical realism.";
+    ? `Integrate ${productReference} as a real newly placed object in ${sceneReference}. Preserve product identity, but adapt only its scene-facing perspective, light response, shadow, reflection, and tiny occlusion needed to make it physically belong in the original room.`
+    : `Integrate ${productReference} as a real product in a newly generated room. Preserve product identity, while adapting only perspective, light response, shadow, reflection, and tiny occlusion needed for physical realism.`;
   const sofaAnalysis = normalizeAnalysisText(payload.sofaAnalysis);
 
   return [
@@ -250,26 +260,28 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     buildQualityLine(imageSize),
     "",
     "REFERENCE ORDER:",
-    "Reference Image 1 = exact furniture product. It is the immutable product identity source.",
     isCustomScene
-      ? "Reference Image 2 = original room scene to preserve. It is the immutable scene identity source."
+      ? "Reference Image 1 = original room scene to preserve. It is the immutable scene identity source and should dominate room layout, architecture, existing furniture, lighting, and camera perspective."
+      : "Reference Image 1 = exact furniture product. It is the immutable product identity source.",
+    isCustomScene
+      ? "Reference Image 2 = exact furniture product. It is the immutable product identity source to add into the room."
       : hasStyleReferenceImage
       ? "Reference Image 2 = room style mood only. It is not a background plate."
       : "Only Reference Image 1 is provided.",
     "",
     "CRITICAL PRODUCT PRESERVATION:",
-    "Preserve Reference Image 1 product identity: category, single-item seat count, physical size class, proportions, silhouette, armrests, backrest, cushion layout, footrest, side controls, hardware, seams, legs/base, upholstery material, leather/fabric texture, color, wrinkles, and visible details.",
+    `Preserve ${productReference} product identity: category, single-item seat count, physical size class, proportions, silhouette, armrests, backrest, cushion layout, footrest, side controls, hardware, seams, legs/base, upholstery material, leather/fabric texture, color, wrinkles, and visible details.`,
     "Do not redesign, recolor, reupholster, widen, narrow, stretch, squash, change height, change seat count, change product category, change armrest/back/cushion structure, add pillows that hide identity, or invent missing product details.",
     productIntegrationLine,
     sofaAnalysis ? "" : null,
     sofaAnalysis ? "PRE-GENERATION SOFA AND PLACEMENT ANALYSIS:" : null,
     sofaAnalysis || null,
-    sofaAnalysis ? "Treat the analysis above as the binding generation contract, including any user edits. Follow its main placement, backup placement, forbidden areas, scale notes, camera notes, and preservation list. Do not invent a different placement, ignore forbidden areas, or fall back to canned positions such as left/right third, wall-side, window-side, or corner-side unless the analysis explicitly chooses that location with visual reasoning. Reference Image 1 remains the highest authority for exact product appearance." : null,
+    sofaAnalysis ? `Treat the analysis above as the binding generation contract, including any user edits. Follow its main placement, backup placement, forbidden areas, scale notes, camera notes, and preservation list. Do not invent a different placement, ignore forbidden areas, or fall back to canned positions such as left/right third, wall-side, window-side, or corner-side unless the analysis explicitly chooses that location with visual reasoning. ${productReference} remains the highest authority for exact product appearance.` : null,
     sofaAnalysis ? null : "Before generating, visually analyze the uploaded product and optional room reference, then choose the placement from product scale, facing direction, floor plane, wall/window/light cues, and walking clearance. Do not use a fixed left/right/wall/window/corner template.",
     "",
     "SCENE:",
     isCustomScene
-      ? "CUSTOM SCENE MODE: Preserve Reference Image 2 as the original room scene. The result should look like the product naturally belongs in that exact room, not like a mismatched product cutout or a newly redesigned room."
+      ? `CUSTOM SCENE MODE: Preserve ${sceneReference} as the original room scene. The result should look like ${productReference} naturally belongs in that exact room, not like a mismatched product cutout or a newly redesigned room.`
       : "No user-selected space type is provided. Infer the most suitable room type and room structure from the pre-generation analysis, uploaded product, optional room reference, and selected style.",
     isCustomScene
       ? `Keep the uploaded original room scene stable while matching this mode: ${styleLine}`
@@ -315,6 +327,7 @@ function buildGeminiRequest(payload) {
   const productImage = parseDataUrl(payload.productImage, "家具产品图");
   const styleReferenceImage = parseDataUrl(payload.styleReferenceImage, "房间/场景参考图");
   const sceneStyle = String(payload.sceneStyle || "modern");
+  const isCustomScene = sceneStyle === "custom" && Boolean(styleReferenceImage);
 
   if (!productImage) {
     throw new Error("为了尽量保持原产品样式不变，请先上传家具产品图。");
@@ -324,12 +337,15 @@ function buildGeminiRequest(payload) {
   }
 
   const hasStyleReferenceImage = Boolean(styleReferenceImage);
-  const parts = [
-    { inlineData: { mimeType: productImage.mimeType, data: productImage.data } },
-  ];
-
-  if (hasStyleReferenceImage) {
+  const parts = [];
+  if (isCustomScene) {
     parts.push({ inlineData: { mimeType: styleReferenceImage.mimeType, data: styleReferenceImage.data } });
+    parts.push({ inlineData: { mimeType: productImage.mimeType, data: productImage.data } });
+  } else {
+    parts.push({ inlineData: { mimeType: productImage.mimeType, data: productImage.data } });
+    if (hasStyleReferenceImage) {
+      parts.push({ inlineData: { mimeType: styleReferenceImage.mimeType, data: styleReferenceImage.data } });
+    }
   }
 
   parts.push({ text: buildPrompt(payload, hasStyleReferenceImage) });
