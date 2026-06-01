@@ -654,7 +654,7 @@ async function generateImage(event) {
     return;
   }
   setLoading(true);
-  setMessage("正在校验积分并生成图片，最长等待约 112 秒");
+  setMessage("正在分析沙发特征、判断摆放策略并生成图片，最长等待约 112 秒");
   try {
     let result;
     try {

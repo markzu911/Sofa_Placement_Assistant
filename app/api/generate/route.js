@@ -7,6 +7,7 @@ import shared from "../lib/_shared.cjs";
 const {
   DEFAULT_MODEL,
   buildGeminiRequest,
+  buildSofaAnalysisRequest,
 } = shared;
 const {
   buildResultFileName,
@@ -16,7 +17,7 @@ const {
   saveResultImageToSaas,
   verifyBeforeGenerate,
 } = saas;
-const { callImageModel } = imageModel;
+const { callImageModel, callTextModel } = imageModel;
 const { AppError, createLogger, createRequestId } = runtimeLib;
 
 export const runtime = "nodejs";
@@ -25,6 +26,7 @@ export const maxDuration = 120;
 
 const SYNC_RESPONSE_BUDGET_MS = 112000;
 const SAVE_RESULT_MIN_BUDGET_MS = 18000;
+const ANALYSIS_TIMEOUT_MS = 18000;
 
 function isRenderableImageUrl(value) {
   return /^(https?:|data:image\/|\/)/i.test(String(value || ""));
@@ -85,8 +87,37 @@ export async function POST(request) {
       throw new AppError("缺少 SaaS 用户上下文，请从平台入口打开工具。", 400);
     }
 
-    const geminiRequest = buildGeminiRequest(payload);
+    buildGeminiRequest(payload);
+    const analysisRequest = buildSofaAnalysisRequest(payload);
     await verifyBeforeGenerate(toolContext, logger);
+
+    let sofaAnalysis = "";
+    if (!payload.retryMode) {
+      const analysisStartedAt = Date.now();
+      logger.log("analysis.start");
+      try {
+        sofaAnalysis = await callTextModel({
+          ai,
+          geminiRequest: analysisRequest,
+          timeoutMs: ANALYSIS_TIMEOUT_MS,
+        });
+        logger.log("analysis.success", {
+          durationMs: Date.now() - analysisStartedAt,
+          analysisLength: sofaAnalysis.length,
+        });
+      } catch (error) {
+        logger.log("analysis.skip", {
+          level: "warn",
+          durationMs: Date.now() - analysisStartedAt,
+          errorMessage: error.message,
+        });
+      }
+    }
+
+    const geminiRequest = buildGeminiRequest({
+      ...payload,
+      sofaAnalysis,
+    });
 
     const geminiStartedAt = Date.now();
     logger.log("gemini.start");

@@ -162,6 +162,64 @@ function buildQualityLine(imageSize) {
   return "[QUALITY: 2K UHD, high definition commercial interior photography, clean lighting, sharp product texture, realistic shadows and coherent perspective.]";
 }
 
+function normalizeAnalysisText(value) {
+  return String(value || "")
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 2200);
+}
+
+function buildSofaAnalysisRequest(payload) {
+  const productImage = parseDataUrl(payload.productImage, "家具产品图");
+  const styleReferenceImage = parseDataUrl(payload.styleReferenceImage, "房间风格参考图");
+  const sceneTypeKey = String(payload.sceneType || "living_room");
+  const styleKey = String(payload.sceneStyle || "modern");
+  const sceneTypeLine = SCENE_TYPE_PRESETS[sceneTypeKey] || SCENE_TYPE_PRESETS.living_room;
+  const styleLine = STYLE_PRESETS[styleKey] || STYLE_PRESETS.modern;
+
+  if (!productImage) {
+    throw new Error("为了尽量保持原产品样式不变，请先上传家具产品图。");
+  }
+
+  const parts = [
+    { inlineData: { mimeType: productImage.mimeType, data: productImage.data } },
+  ];
+
+  if (styleReferenceImage) {
+    parts.push({ inlineData: { mimeType: styleReferenceImage.mimeType, data: styleReferenceImage.data } });
+  }
+
+  parts.push({
+    text: [
+      "请用中文输出结构化、可执行的沙发摆放分析。Reference Image 1 是必须保留外观的沙发产品。",
+      styleReferenceImage
+        ? "Reference Image 2 是房间/风格参考，只用于分析空间感、材质、光线、窗户/墙面线索和装修气质，不作为直接修改底图。"
+        : "没有房间参考图，请结合用户选择的空间类型和风格判断。",
+      `用户选择空间类型：${sceneTypeLine}`,
+      `用户选择风格：${styleLine}`,
+      "",
+      "请严格按以下字段输出，内容要短但具体：",
+      "1. 沙发类型与体量：例如单人/双人/转角/躺椅/功能沙发、视觉重量、高低比例。",
+      "2. 必须保留的视觉特征：颜色、材质、纹理、缝线、扶手、靠背、坐垫、脚架、脚踏、功能按钮、五金件、整体轮廓。",
+      "3. 适配空间与风格：它更适合靠窗休闲角、电视墙侧、主墙会客区、阳台边、书房阅读位还是酒店套房会客角。",
+      "4. 推荐摆放位置：用室内设计师口吻说明应放在画面左/右三分之一、窗边、墙边、角落、地毯边缘或茶几侧，说明原因。",
+      "5. 透视与落地要求：相机高度、地面接触、阴影、反射、遮挡、避免穿模和动线阻挡。",
+      "6. 生成时要避免的问题：列出最容易出错的点。",
+      "只输出分析，不要输出问候、标题之外的解释，也不要要求用户补充信息。",
+    ].join("\n"),
+  });
+
+  return {
+    contents: {
+      parts,
+    },
+    config: {
+      safetySettings: SAFETY_SETTINGS,
+    },
+  };
+}
+
 function buildPrompt(payload, hasStyleReferenceImage) {
   const styleKey = String(payload.sceneStyle || "modern");
   const sceneTypeKey = String(payload.sceneType || "living_room");
@@ -178,6 +236,7 @@ function buildPrompt(payload, hasStyleReferenceImage) {
   const styleReferenceLine = hasStyleReferenceImage
     ? "Reference image 2 is ONLY a loose room-style reference. Borrow palette, material mood, lighting, decor taste, and atmosphere. Do not copy its exact room, layout, architecture, furniture positions, camera angle, or perspective."
     : "No room-style reference image is provided.";
+  const sofaAnalysis = normalizeAnalysisText(payload.sofaAnalysis);
 
   return [
     "TASK: Create one photorealistic ecommerce furniture placement image.",
@@ -193,6 +252,10 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     "Keep Reference Image 1 product 100% identical and keep the sofa body height consistent with the uploaded product: category, seat count, physical size class, proportions, overall outline, viewing angle, visible sides, armrests, backrest, cushion count, footrest, function buttons, hardware, seams, legs/base, upholstery material, fabric/leather texture, color, pattern, and all product details.",
     "Do not redesign, recolor, reupholster, widen, narrow, stretch, squash, rotate, change height, change seat count, change product category, change armrest/back/cushion structure, add pillows that hide identity, or invent missing product details.",
     "Only change camera distance/framing, room environment, lighting integration, contact shadows, and tiny natural occlusion needed to place the exact product in the room.",
+    sofaAnalysis ? "" : null,
+    sofaAnalysis ? "PRE-GENERATION SOFA AND PLACEMENT ANALYSIS:" : null,
+    sofaAnalysis || null,
+    sofaAnalysis ? "Use this analysis as placement guidance, but Reference Image 1 remains the highest authority for exact product appearance." : null,
     "",
     "SCENE:",
     `Selected space type and placement plan: ${sceneTypeLine}`,
@@ -214,7 +277,7 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     "",
     "NEGATIVE RULES: no extra sofa, no duplicate product, no wrong product, no changed product style/color/material/texture/seams/arms/back/cushions/footrest/buttons/hardware/outline, no distorted human body, no messy background, no text, no watermark, no price tag, no logo overlay, no low resolution, no over-filtered look, no cartoon style, no rigid centered catalog staging, no malformed furniture, no pasted cutout edge, no floating product, no clipping, no deformation, no mismatched perspective.",
     "Output the image only.",
-  ].join("\n");
+  ].filter((line) => line !== null && line !== undefined).join("\n");
 }
 
 function buildGeminiRequest(payload) {
@@ -295,6 +358,7 @@ module.exports = {
   DEFAULT_MODEL,
   MAX_BODY_BYTES,
   buildGeminiRequest,
+  buildSofaAnalysisRequest,
   extractGeneratedImage,
   readJsonBody,
   sendJson,

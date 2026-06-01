@@ -25,6 +25,17 @@ function buildSdkGenerateRequest({ ai, geminiRequest }) {
   };
 }
 
+function buildSdkTextRequest({ ai, geminiRequest }) {
+  const config = geminiRequest.config || geminiRequest.generationConfig || {};
+  return {
+    model: ai.model,
+    contents: geminiRequest.contents,
+    config: {
+      safetySettings: config.safetySettings || geminiRequest.safetySettings,
+    },
+  };
+}
+
 function toOpenAiImageContent(inlineData) {
   const mimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
   return {
@@ -170,6 +181,44 @@ async function callNativeGemini({ ai, geminiRequest }) {
   }
 }
 
+function extractNativeText(response) {
+  if (!response) return "";
+  if (typeof response.text === "string") return response.text.trim();
+  if (typeof response.text === "function") {
+    try {
+      const value = response.text();
+      if (typeof value === "string") return value.trim();
+    } catch {
+      return "";
+    }
+  }
+
+  const candidates = response && Array.isArray(response.candidates) ? response.candidates : [];
+  const textParts = [];
+  for (const candidate of candidates) {
+    const parts = candidate && candidate.content && Array.isArray(candidate.content.parts) ? candidate.content.parts : [];
+    for (const part of parts) {
+      if (part && part.text) textParts.push(String(part.text));
+    }
+  }
+  return textParts.join("\n").trim();
+}
+
+async function callNativeGeminiText({ ai, geminiRequest, timeoutMs }) {
+  try {
+    const client = new GoogleGenAI({ apiKey: ai.apiKey });
+    const response = await withTimeout(
+      client.models.generateContent(buildSdkTextRequest({ ai, geminiRequest })),
+      timeoutMs || 18000,
+      "Gemini 图片分析超时，已跳过分析继续生成。",
+    );
+    return extractNativeText(response);
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(error.message || "Gemini 图片分析失败。", 502);
+  }
+}
+
 async function callVercelAiGateway({ ai, geminiRequest }) {
   const imageConfig = geminiRequest.generationConfig && geminiRequest.generationConfig.imageConfig;
   const response = await fetchWithTimeout(
@@ -206,6 +255,40 @@ async function callVercelAiGateway({ ai, geminiRequest }) {
   return extractGatewayGeneratedImage(responseJson);
 }
 
+async function callVercelAiGatewayText({ ai, geminiRequest, timeoutMs }) {
+  const response = await fetchWithTimeout(
+    `${ai.baseUrl}/chat/completions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${ai.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: ai.model,
+        messages: buildGatewayMessages(geminiRequest),
+        modalities: ["text"],
+        stream: false,
+        providerOptions: {
+          google: {
+            responseModalities: ["TEXT"],
+          },
+        },
+      }),
+    },
+    timeoutMs || 18000,
+    "Vercel AI Gateway 图片分析超时，已跳过分析继续生成。",
+  );
+
+  const { responseJson, responseText } = await readJsonOrRaw(response);
+  if (!response.ok) {
+    throw new AppError(`Vercel AI Gateway 返回 ${response.status}: ${getErrorMessage(responseJson, responseText)}`, response.status || 502);
+  }
+
+  const message = responseJson && responseJson.choices && responseJson.choices[0] && responseJson.choices[0].message;
+  return readGatewayText(message);
+}
+
 async function callImageModel({ ai, geminiRequest }) {
   if (ai.provider === "vercel-ai-gateway") {
     return callVercelAiGateway({ ai, geminiRequest });
@@ -213,7 +296,15 @@ async function callImageModel({ ai, geminiRequest }) {
   return callNativeGemini({ ai, geminiRequest });
 }
 
+async function callTextModel({ ai, geminiRequest, timeoutMs }) {
+  if (ai.provider === "vercel-ai-gateway") {
+    return callVercelAiGatewayText({ ai, geminiRequest, timeoutMs });
+  }
+  return callNativeGeminiText({ ai, geminiRequest, timeoutMs });
+}
+
 module.exports = {
   GEMINI_TIMEOUT_MS,
   callImageModel,
+  callTextModel,
 };
