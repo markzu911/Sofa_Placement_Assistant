@@ -7,6 +7,11 @@ const state = {
   modalFileName: "",
   history: [],
   isLoading: false,
+  sofaAnalysis: "",
+  sofaAnalysisSignature: "",
+  analysisAbortController: null,
+  analysisDebounceId: 0,
+  isAnalyzing: false,
   saas: {
     userId: "",
     toolId: "",
@@ -43,16 +48,6 @@ const labels = {
     false: "无模特",
     true: "添加模特",
   },
-  sceneType: {
-    living_room: "客厅",
-    balcony: "阳台",
-    study: "书房",
-    bedroom: "卧室",
-    showroom: "展厅",
-    model_room: "样板间",
-    office: "办公室",
-    hotel_suite: "酒店套房",
-  },
 };
 
 const elements = {
@@ -65,7 +60,6 @@ const elements = {
   styleReferencePreview: document.querySelector("#styleReferencePreview"),
   productMeta: document.querySelector("#productMeta"),
   styleReferenceMeta: document.querySelector("#styleReferenceMeta"),
-  sceneType: document.querySelector("#sceneType"),
   imageSize: document.querySelector("#imageSize"),
   aspectRatio: document.querySelector("#aspectRatio"),
   generateButton: document.querySelector("#generateButton"),
@@ -87,7 +81,6 @@ const elements = {
   apiStatus: document.querySelector("#apiStatus"),
   summaryProduct: document.querySelector("#summaryProduct"),
   summaryScene: document.querySelector("#summaryScene"),
-  summarySceneType: document.querySelector("#summarySceneType"),
   summaryView: document.querySelector("#summaryView"),
   summaryModel: document.querySelector("#summaryModel"),
   summarySpec: document.querySelector("#summarySpec"),
@@ -318,6 +311,119 @@ function getSaasRequestContext() {
   };
 }
 
+function getImageSignature(image) {
+  if (!image) return "";
+  const dataUrl = String(image.dataUrl || "");
+  return [
+    image.name || "",
+    image.size || 0,
+    image.originalSize || 0,
+    dataUrl.length,
+    dataUrl.slice(0, 48),
+    dataUrl.slice(-48),
+  ].join("|");
+}
+
+function getAnalysisSignature() {
+  return JSON.stringify({
+    product: getImageSignature(state.productImage),
+    styleReference: getImageSignature(state.styleReferenceImage),
+    sceneStyle: getCheckedValue("sceneStyle"),
+  });
+}
+
+function getFreshSofaAnalysis() {
+  if (!state.sofaAnalysis) return "";
+  return state.sofaAnalysisSignature === getAnalysisSignature() ? state.sofaAnalysis : "";
+}
+
+function resetSofaAnalysis({ abort = true } = {}) {
+  if (abort && state.analysisAbortController) {
+    state.analysisAbortController.abort();
+  }
+  if (state.analysisDebounceId) {
+    clearTimeout(state.analysisDebounceId);
+    state.analysisDebounceId = 0;
+  }
+  state.sofaAnalysis = "";
+  state.sofaAnalysisSignature = "";
+  state.analysisAbortController = null;
+  state.isAnalyzing = false;
+}
+
+function shouldAnalyzePlacement() {
+  if (!state.productImage || !hasSaasContext()) return false;
+  if (isCustomStyle() && !state.styleReferenceImage) return false;
+  return true;
+}
+
+function scheduleSofaAnalysis() {
+  if (state.analysisDebounceId) {
+    clearTimeout(state.analysisDebounceId);
+  }
+  if (!shouldAnalyzePlacement()) return;
+  state.analysisDebounceId = setTimeout(() => {
+    state.analysisDebounceId = 0;
+    analyzeSofaPlacement().catch(() => {});
+  }, 450);
+}
+
+async function analyzeSofaPlacement({ force = false } = {}) {
+  if (!shouldAnalyzePlacement()) return "";
+  const signature = getAnalysisSignature();
+  if (!force && state.sofaAnalysis && state.sofaAnalysisSignature === signature) {
+    return state.sofaAnalysis;
+  }
+
+  if (state.analysisAbortController) {
+    state.analysisAbortController.abort();
+  }
+
+  const controller = new AbortController();
+  state.analysisAbortController = controller;
+  state.isAnalyzing = true;
+  setMessage("正在 AI 分析家具体量、空间线索和最佳摆位...");
+
+  try {
+    const payload = {
+      ...buildPayload(),
+      viewType: undefined,
+      includeModel: undefined,
+      imageSize: undefined,
+      aspectRatio: undefined,
+      sofaAnalysis: undefined,
+    };
+    const response = await fetch(apiPath("analyze"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const result = await readResponsePayload(response, "图片分析失败。");
+    const sofaAnalysis = String(result.sofaAnalysis || result.analysis || "").trim();
+    if (!sofaAnalysis) {
+      throw new Error("AI 未返回有效摆位分析。");
+    }
+    state.sofaAnalysis = sofaAnalysis;
+    state.sofaAnalysisSignature = signature;
+    if (!state.isLoading) {
+      setMessage("AI 摆位分析完成，可以生成图片。");
+    }
+    return sofaAnalysis;
+  } catch (error) {
+    if (error.name === "AbortError") return "";
+    if (!state.isLoading) {
+      setMessage("AI 摆位分析暂未完成，生成时会重新分析。");
+    }
+    return "";
+  } finally {
+    if (state.analysisAbortController === controller) {
+      state.analysisAbortController = null;
+    }
+    state.isAnalyzing = false;
+  }
+}
+
 async function loadSaasLaunch() {
   if (!hasSaasContext()) return;
   try {
@@ -339,6 +445,7 @@ async function loadSaasLaunch() {
     } else {
       setMessage("SaaS 已连接，生成成功后会保存到我的图片。");
     }
+    scheduleSofaAnalysis();
   } catch (error) {
     state.saas.launchLoaded = false;
     setMessage(error.message, true);
@@ -404,15 +511,19 @@ async function handleFile(input, key, preview, tile, meta) {
     }
     if (key === "productImage") {
       resetResult();
+      resetSofaAnalysis();
       setMessage(image ? "产品图已作为外观基准锁定，可以生成。" : "");
       updatePreviewTitle();
     } else {
+      resetSofaAnalysis();
       setMessage(image ? "房间风格参考图已添加，仅用于风格参考。" : "");
     }
     updateSummary();
+    scheduleSofaAnalysis();
   } catch (error) {
     input.value = "";
     state[key] = null;
+    resetSofaAnalysis();
     preview.removeAttribute("src");
     tile.classList.remove("has-image");
     meta.textContent = defaultMetaText[key];
@@ -463,10 +574,6 @@ function getSceneLabel() {
   return state.styleReferenceImage ? `${styleLabel} + 参考图` : styleLabel;
 }
 
-function getSceneTypeLabel() {
-  return labels.sceneType[elements.sceneType.value] || "客厅";
-}
-
 function updateStyleReferenceState() {
   const customStyle = isCustomStyle();
   elements.styleReferenceMeta.textContent = state.styleReferenceImage
@@ -494,7 +601,7 @@ function updatePreviewTitle() {
   }
 
   const viewLabel = labels.view[getCheckedValue("viewType")] || "预览";
-  elements.previewTitle.textContent = `${getSceneTypeLabel()} · ${getSceneLabel()} · ${viewLabel}`;
+  elements.previewTitle.textContent = `${getSceneLabel()} · ${viewLabel}`;
 }
 
 function updatePreviewRatio() {
@@ -538,7 +645,6 @@ function updateSummary() {
   const modelLabel = labels.model[getCheckedValue("includeModel")] || "无模特";
   elements.summaryProduct.textContent = state.productImage ? state.productImage.name : "未上传";
   elements.summaryScene.textContent = getSceneLabel();
-  elements.summarySceneType.textContent = getSceneTypeLabel();
   elements.summaryView.textContent = viewLabel;
   elements.summaryModel.textContent = modelLabel;
   elements.summarySpec.textContent = `${elements.imageSize.value} · ${elements.aspectRatio.value}`;
@@ -547,7 +653,6 @@ function updateSummary() {
 function getCurrentMeta() {
   return {
     scene: getSceneLabel(),
-    sceneType: getSceneTypeLabel(),
     view: labels.view[getCheckedValue("viewType")] || "远景图",
     model: labels.model[getCheckedValue("includeModel")] || "无模特",
     spec: `${elements.imageSize.value} · ${elements.aspectRatio.value}`,
@@ -559,10 +664,10 @@ function buildPayload() {
   return {
     productImage: state.productImage,
     styleReferenceImage: state.styleReferenceImage,
+    sofaAnalysis: getFreshSofaAnalysis(),
     ...saasContext,
     saas: saasContext,
     sceneStyle: getCheckedValue("sceneStyle"),
-    sceneType: elements.sceneType.value,
     viewType: getCheckedValue("viewType"),
     includeModel: getCheckedValue("includeModel") === "true",
     imageSize: elements.imageSize.value,
@@ -640,7 +745,7 @@ function shouldRetryGenerate(error) {
 
 async function generateImage(event) {
   event.preventDefault();
-  const payload = buildPayload();
+  let payload = buildPayload();
   if (!payload.productImage) {
     setMessage("请先上传家具产品图。", true);
     return;
@@ -654,8 +759,15 @@ async function generateImage(event) {
     return;
   }
   setLoading(true);
-  setMessage("正在分析沙发特征、判断摆放策略并生成图片，最长等待约 112 秒");
+  setMessage("正在先分析家具体量与摆放策略，随后生成图片，最长等待约 112 秒");
   try {
+    if (!payload.sofaAnalysis) {
+      const sofaAnalysis = await analyzeSofaPlacement({ force: true });
+      payload = {
+        ...buildPayload(),
+        sofaAnalysis,
+      };
+    }
     let result;
     try {
       result = await postGeneratePayload(payload, generateRequestTimeoutMs);
@@ -683,6 +795,11 @@ async function generateImage(event) {
       fileSize: result.fileSize || result.image?.fileSize || 0,
       savedToRecords: Boolean(result.savedToRecords || result.image?.savedToRecords),
     };
+    const resultAnalysis = String(result.sofaAnalysis || "").trim();
+    if (resultAnalysis) {
+      state.sofaAnalysis = resultAnalysis;
+      state.sofaAnalysisSignature = getAnalysisSignature();
+    }
     elements.resultImage.src = resultUrl;
     elements.resultImage.classList.add("visible");
     elements.emptyState.style.display = "none";
@@ -742,7 +859,7 @@ function renderHistory() {
       body.className = "history-card-body";
 
       const title = document.createElement("h3");
-      title.textContent = item.sceneType ? `${item.sceneType} · ${item.scene}` : item.scene;
+      title.textContent = item.scene;
 
       const meta = document.createElement("p");
       meta.textContent = `${item.view} · ${item.model} · ${item.spec}`;
@@ -869,7 +986,9 @@ elements.styleReferenceInput.addEventListener("change", () =>
 );
 document.querySelectorAll('input[name="sceneStyle"]').forEach((input) => {
   input.addEventListener("change", () => {
+    resetSofaAnalysis();
     updateStyleReferenceState();
+    scheduleSofaAnalysis();
   });
 });
 document.querySelectorAll('input[name="viewType"], input[name="includeModel"]').forEach((input) => {
@@ -879,10 +998,6 @@ document.querySelectorAll('input[name="viewType"], input[name="includeModel"]').
   });
 });
 elements.imageSize.addEventListener("change", updateSummary);
-elements.sceneType.addEventListener("change", () => {
-  updatePreviewTitle();
-  updateSummary();
-});
 elements.aspectRatio.addEventListener("change", updatePreviewRatio);
 elements.form.addEventListener("submit", generateImage);
 elements.downloadButton.addEventListener("click", () => downloadImage());

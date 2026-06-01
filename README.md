@@ -51,7 +51,9 @@ GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview
 ## SaaS 接入流程
 
 - 页面会从 SaaS `postMessage` 的 `SAAS_INIT` 或 URL 参数读取 `userId/toolId`，不需要在 Vercel 里额外配置工具 ID。
+- 用户上传产品图或调整风格后，前端会先调用 `/api/analyze` 做 AI 摆位分析，判断产品体量、适配空间、空间线索、光线、动线和远/中/近景延展方式。
 - `/api/generate` 会先调用 SaaS `/api/tool/verify` 校验积分。
+- `/api/generate` 会复用前置分析；如果分析缺失或过期，生成前会重新分析一次，再把分析结果写入生图提示词。
 - Gemini 生成失败不会扣费，也不会上传任何图片。
 - AI 最终结果图生成成功后，后端调用 `/api/tool/consume` 扣费。
 - 扣费成功后，后端调用 `/api/upload/direct-token` 获取短期 OSS 上传地址。
@@ -62,6 +64,7 @@ GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview
 ## 功能
 
 - 家具产品图必传，用于锁定原产品样式。
+- 上传后先进行 AI 摆位分析，再根据分析结果生成画面；不会固定套用某几个预设落点。
 - 选择场景风格，可选上传房间风格参考图；参考图只用于色调、材质、光线和软装气质，不还原原房间。
 - 3 种摄影景别：远景、中景、近景；模特可独立选择是否添加。
 - 2K / 4K、图片比例选择。

@@ -28,6 +28,14 @@ const SYNC_RESPONSE_BUDGET_MS = 112000;
 const SAVE_RESULT_MIN_BUDGET_MS = 18000;
 const ANALYSIS_TIMEOUT_MS = 18000;
 
+function normalizeAnalysisText(value) {
+  return String(value || "")
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 2200);
+}
+
 function isRenderableImageUrl(value) {
   return /^(https?:|data:image\/|\/)/i.test(String(value || ""));
 }
@@ -74,7 +82,6 @@ export async function POST(request) {
       userId: toolContext.userId,
       toolId: toolContext.toolId,
       model,
-      sceneType: payload.sceneType,
       viewType: payload.viewType,
       includeModel: payload.includeModel,
       aspectRatio: payload.aspectRatio,
@@ -91,26 +98,32 @@ export async function POST(request) {
     const analysisRequest = buildSofaAnalysisRequest(payload);
     await verifyBeforeGenerate(toolContext, logger);
 
-    let sofaAnalysis = "";
+    let sofaAnalysis = normalizeAnalysisText(payload.sofaAnalysis);
     if (!payload.retryMode) {
-      const analysisStartedAt = Date.now();
-      logger.log("analysis.start");
-      try {
-        sofaAnalysis = await callTextModel({
-          ai,
-          geminiRequest: analysisRequest,
-          timeoutMs: ANALYSIS_TIMEOUT_MS,
-        });
-        logger.log("analysis.success", {
-          durationMs: Date.now() - analysisStartedAt,
+      if (sofaAnalysis) {
+        logger.log("analysis.reuse", {
           analysisLength: sofaAnalysis.length,
         });
-      } catch (error) {
-        logger.log("analysis.skip", {
-          level: "warn",
-          durationMs: Date.now() - analysisStartedAt,
-          errorMessage: error.message,
-        });
+      } else {
+        const analysisStartedAt = Date.now();
+        logger.log("analysis.start");
+        try {
+          sofaAnalysis = await callTextModel({
+            ai,
+            geminiRequest: analysisRequest,
+            timeoutMs: ANALYSIS_TIMEOUT_MS,
+          });
+          logger.log("analysis.success", {
+            durationMs: Date.now() - analysisStartedAt,
+            analysisLength: sofaAnalysis.length,
+          });
+        } catch (error) {
+          logger.log("analysis.skip", {
+            level: "warn",
+            durationMs: Date.now() - analysisStartedAt,
+            errorMessage: error.message,
+          });
+        }
       }
     }
 
@@ -147,6 +160,7 @@ export async function POST(request) {
         model,
         mimeType,
         text: image.text,
+        sofaAnalysis,
         dataUrl: image.dataUrl,
         url: image.dataUrl,
         fileName: buildResultFileName(payload, mimeType),
@@ -182,6 +196,7 @@ export async function POST(request) {
       model,
       mimeType,
       text: image.text,
+      sofaAnalysis,
       dataUrl: resultUrl,
       recordId: savedImage.recordId,
       url: resultUrl,

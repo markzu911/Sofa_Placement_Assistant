@@ -60,36 +60,17 @@ const STYLE_PRESETS = {
   custom: "自定义风格：以参考图 2 的房间风格为主，提取其色调、材质、光线、软装气质和整体氛围。",
 };
 
-const SCENE_TYPE_PRESETS = {
-  living_room:
-    "客厅：将沙发放在主要会客区，面向茶几或电视墙，优先靠右侧或左侧主墙、窗边、转角墙一侧自然摆放；画面中心可留给地毯、茶几、通道和空间纵深，窗户或电视墙可作为视觉中心。",
-  balcony:
-    "阳台：根据窄长空间、落地窗或护栏位置摆放，沙发靠内侧墙或窗边休闲区，避免挡住主要通道和窗户开启区域。",
-  study:
-    "书房：将沙发作为阅读休息位，靠书柜、书桌侧墙或窗边，加入书架、落地灯、小边几等低干扰元素，空间保持安静整洁。",
-  bedroom:
-    "卧室：将沙发放在床尾、窗边或休闲角，和床、床头柜、衣柜保持真实尺度关系，避免拥挤和遮挡主要家具动线。",
-  showroom:
-    "展厅：采用高级陈列空间，沙发作为唯一核心展品，留出宽阔动线、墙面展示或低矮陈设，灯光强调材质但不过度戏剧化。",
-  model_room:
-    "样板间：生成完整精装住宅氛围，沙发位于自然会客区，软装统一、尺度真实，像楼盘样板间实拍而非空房拼贴。",
-  office:
-    "办公室：将沙发放在接待区、休息区或高管办公室会谈区，周围可有茶几、绿植、办公隔断或玻璃墙，但不出现其他座椅类家具。",
-  hotel_suite:
-    "酒店套房：将沙发放在套房会客角、窗边或床区外侧，搭配地毯、边几、窗帘和暖调灯光，保持酒店级整洁与高级感。",
-};
-
 const VIEW_PRESETS = {
   wide:
-    "CAMERA VIEW = FAR / TRUE WIDE COMMERCIAL ROOM SHOT / 远景商品空间图。Camera distance tier: FAR, clearly across the room from the product, roughly 5-7 meters away or equivalent interior-photography distance. Keep the product at the same photographed yaw, pitch, visible sides, and perspective cues from reference image 1. Pull the virtual camera clearly farther back along that same viewing direction, then render a wider original room around the product, but keep this a product-led ecommerce image rather than a real-estate room panorama. This must not look like a medium shot or close shot. Show broad floor area in front of and around the product, wall/floor junction, at least one full wall or large wall section, nearby rug/table/window/door cues, and the product's placement relationship to the room. At least 72% of the image area should be room context and negative space. The full product should be visible, readable, and roughly 8-16% of the image area; its bounding box must not exceed about 30% of the image width or 34% of the image height. Place the product in a natural side seating zone, commonly on the left or right third of the frame, along a wall/window/room corner, with generous breathing room and a clear floor path; do not force the product into the exact image center. Let the room center be occupied by rug, coffee table, open floor, window, TV wall, or perspective depth when appropriate. Do not create distance by scaling, warping, changing product pose, or pasting a cutout over a background. Besides the reference product, do not add any sofa, recliner, armchair, lounge chair, chaise, bench, ottoman, pouf, dining chair, stool, or any other seating-shaped furniture anywhere in the room.",
+    "CAMERA VIEW = FAR / TRUE WIDE COMMERCIAL ROOM SHOT / 远景商品空间图。Camera distance tier: FAR, clearly across the room from the product, roughly 5-7 meters away or equivalent interior-photography distance. Keep the product at the same photographed yaw, pitch, visible sides, and perspective cues from reference image 1. Pull the virtual camera clearly farther back along that same viewing direction, then render a wider original room around the product, but keep this a product-led ecommerce image rather than a real-estate room panorama. This must not look like a medium shot or close shot. Show broad floor area in front of and around the product, wall/floor junction, at least one full wall or large wall section, nearby rug/table/window/door cues, and the product's placement relationship to the room. At least 72% of the image area should be room context and negative space. The full product should be visible, readable, and roughly 8-16% of the image area; its bounding box must not exceed about 30% of the image width or 34% of the image height. The final frame position must follow the pre-generation placement decision; preserve usable walking clearance and do not force a catalog-center layout unless the analysis explicitly says center placement is best. Do not create distance by scaling, warping, changing product pose, or pasting a cutout over a background. Besides the reference product, do not add any sofa, recliner, armchair, lounge chair, chaise, bench, ottoman, pouf, dining chair, stool, or any other seating-shaped furniture anywhere in the room.",
   mid:
-    "CAMERA VIEW = MEDIUM PRODUCT-IN-ROOM SHOT / 中景。Camera distance tier: MEDIUM, roughly 3-4.5 meters away or equivalent room-distance interior photography. Keep the product at the same photographed yaw, pitch, visible sides, and perspective cues from reference image 1. Use a realistic room-distance camera on that same viewing direction. The exact product is the main subject but should feel placed inside a complete room, with enough surrounding floor, rug, coffee table, window/curtain, wall, ceiling edge, and decor cues to prove it is naturally placed. The product should occupy roughly 22-34% of the image area; its bounding box should be about 36-54% of the image width or height. This must be clearly closer than the far view and clearly farther than the close view. The product may sit off-center on the left or right third if that makes the room feel like a real interior photograph; avoid rigid catalog-style center alignment, isolated product portraits, and blank wall product cutouts. Do not enlarge the product body, change product pose, or composite a foreground cutout; use camera distance, lens choice, and framing only.",
+    "CAMERA VIEW = MEDIUM PRODUCT-IN-ROOM SHOT / 中景。Camera distance tier: MEDIUM, roughly 3-4.5 meters away or equivalent room-distance interior photography. Keep the product at the same photographed yaw, pitch, visible sides, and perspective cues from reference image 1. Use a realistic room-distance camera on that same viewing direction. The exact product is the main subject but should feel placed inside a complete room, with enough surrounding floor, rug, coffee table, window/curtain, wall, ceiling edge, and decor cues to prove it is naturally placed. The product should occupy roughly 22-34% of the image area; its bounding box should be about 36-54% of the image width or height. This must be clearly closer than the far view and clearly farther than the close view. Keep the same placement decision as the wide view would use, then crop/framing closer around that actual location; avoid rigid catalog-style center alignment, isolated product portraits, and blank wall product cutouts. Do not enlarge the product body, change product pose, or composite a foreground cutout; use camera distance, lens choice, and framing only.",
   close:
     "CAMERA VIEW = CLOSE COMMERCIAL DETAIL SHOT / 近景。Camera distance tier: CLOSE, roughly 1-2 meters away or equivalent detail/product close-up distance. Keep the product at the same photographed yaw, pitch, visible sides, and perspective cues from reference image 1. Move the virtual camera closer along that same viewing direction, keeping the SKU identity and real proportions intact. Emphasize material, cushions, armrests, seams, legs, and lighting while still showing floor contact or a small amount of real room context. The product should occupy roughly 58-78% of the image area; its bounding box should fill about 70-90% of the image width or height. This must be clearly closer than the medium view. Slight off-center framing is allowed when it improves realism and leaves room context, negative space, side table, window light, or floor contact visible. Controlled edge cropping is allowed only if the SKU identity, seat count, main silhouette, material, armrests, cushion structure, and source-photo pose remain readable; it must not become an abstract partial object or change physical size, category, seat count, or source-photo pose.",
 };
 
 const NATURAL_INTERIOR_COMPOSITION =
-  "Use a natural interior-photography composition inspired by real lived-in room photos: a TV wall, window wall, rug, coffee table, open floor, and ceiling/floor perspective may define the visual center, while the sofa can sit off-center on a side wall, window side, or room corner. Prefer balanced asymmetry over centered product staging. Keep verticals mostly straight, use a believable room-depth viewpoint, and allow foreground floor, ceiling lines, side decor, window light, and reflections to create depth. For wide and medium views, avoid a single-object portrait composition; make the room read first as a plausible photographed interior, then as a product placement image. The product does not need to be centered in the exact middle of the image.";
+  "Use a natural interior-photography composition inspired by real lived-in room photos. Let the AI placement analysis decide the room anchor, product location, negative space, camera height, and supporting furniture relationship from the uploaded product and optional room reference. Keep verticals mostly straight, use a believable room-depth viewpoint, and allow foreground floor, ceiling lines, side decor, window light, and reflections to create depth. For wide and medium views, avoid a single-object portrait composition; make the room read first as a plausible photographed interior, then as a product placement image.";
 
 const ASPECT_RATIOS = new Set(["1:1", "4:3", "3:4", "16:9", "9:16", "21:9", "3:2", "2:3", "5:4", "4:5"]);
 const IMAGE_SIZES = new Set(["2K", "4K"]);
@@ -173,9 +154,7 @@ function normalizeAnalysisText(value) {
 function buildSofaAnalysisRequest(payload) {
   const productImage = parseDataUrl(payload.productImage, "家具产品图");
   const styleReferenceImage = parseDataUrl(payload.styleReferenceImage, "房间风格参考图");
-  const sceneTypeKey = String(payload.sceneType || "living_room");
   const styleKey = String(payload.sceneStyle || "modern");
-  const sceneTypeLine = SCENE_TYPE_PRESETS[sceneTypeKey] || SCENE_TYPE_PRESETS.living_room;
   const styleLine = STYLE_PRESETS[styleKey] || STYLE_PRESETS.modern;
 
   if (!productImage) {
@@ -195,17 +174,18 @@ function buildSofaAnalysisRequest(payload) {
       "请用中文输出结构化、可执行的沙发摆放分析。Reference Image 1 是必须保留外观的沙发产品。",
       styleReferenceImage
         ? "Reference Image 2 是房间/风格参考，只用于分析空间感、材质、光线、窗户/墙面线索和装修气质，不作为直接修改底图。"
-        : "没有房间参考图，请结合用户选择的空间类型和风格判断。",
-      `用户选择空间类型：${sceneTypeLine}`,
+        : "没有房间参考图，请结合家具特征和用户选择风格判断最合适的室内功能、房间结构和摆位。",
       `用户选择风格：${styleLine}`,
       "",
       "请严格按以下字段输出，内容要短但具体：",
       "1. 沙发类型与体量：例如单人/双人/转角/躺椅/功能沙发、视觉重量、高低比例。",
       "2. 必须保留的视觉特征：颜色、材质、纹理、缝线、扶手、靠背、坐垫、脚架、脚踏、功能按钮、五金件、整体轮廓。",
-      "3. 适配空间与风格：它更适合靠窗休闲角、电视墙侧、主墙会客区、阳台边、书房阅读位还是酒店套房会客角。",
-      "4. 推荐摆放位置：用室内设计师口吻说明应放在画面左/右三分之一、窗边、墙边、角落、地毯边缘或茶几侧，说明原因。",
-      "5. 透视与落地要求：相机高度、地面接触、阴影、反射、遮挡、避免穿模和动线阻挡。",
-      "6. 生成时要避免的问题：列出最容易出错的点。",
+      "3. 适配空间判断：不要使用用户预设空间，因为界面没有人工空间选择。请根据产品和参考图/风格自行判断最合理的室内空间功能、房间结构和氛围，并说明原因。",
+      "4. 空间线索判断：如果有 Reference Image 2，请提取可用墙面、窗光、地面透视、通道、视觉中心和不应遮挡的位置；如果没有参考图，请基于产品比例、功能和风格自行推断房间结构。",
+      "5. 摆放决策：不要套用固定候选位置。请根据产品体量、朝向、空间线索、光线和动线，明确建议的落点、朝向、离墙/离窗/离茶几/离通道关系，并说明原因。",
+      "6. 远/中/近景延展：同一个摆放决策下，分别说明远景、中景、近景该如何拉开或靠近相机，而不是改变沙发位置、比例或角度。",
+      "7. 透视与落地要求：相机高度、地面接触、阴影、反射、遮挡、避免穿模和动线阻挡。",
+      "8. 生成时要避免的问题：列出最容易出错的点。",
       "只输出分析，不要输出问候、标题之外的解释，也不要要求用户补充信息。",
     ].join("\n"),
   });
@@ -222,13 +202,11 @@ function buildSofaAnalysisRequest(payload) {
 
 function buildPrompt(payload, hasStyleReferenceImage) {
   const styleKey = String(payload.sceneStyle || "modern");
-  const sceneTypeKey = String(payload.sceneType || "living_room");
   const viewKey = String(payload.viewType || "wide");
   const includeModel = Boolean(payload.includeModel);
   const aspectRatio = String(payload.aspectRatio || "4:3");
   const imageSize = String(payload.imageSize || "2K").toUpperCase();
   const styleLine = STYLE_PRESETS[styleKey] || STYLE_PRESETS.modern;
-  const sceneTypeLine = SCENE_TYPE_PRESETS[sceneTypeKey] || SCENE_TYPE_PRESETS.living_room;
   const viewLine = VIEW_PRESETS[viewKey] || VIEW_PRESETS.wide;
   const modelLine = includeModel
     ? "MODEL: Add exactly one adult lifestyle model naturally interacting with the sofa: sitting on it, leaning back, reading, drinking coffee, or resting. The model must have realistic anatomy and must stay secondary, never covering the product's core selling points such as silhouette, armrests, backrest, cushions, seams, material texture, buttons, metal details, or legs."
@@ -255,17 +233,18 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     sofaAnalysis ? "" : null,
     sofaAnalysis ? "PRE-GENERATION SOFA AND PLACEMENT ANALYSIS:" : null,
     sofaAnalysis || null,
-    sofaAnalysis ? "Use this analysis as placement guidance, but Reference Image 1 remains the highest authority for exact product appearance." : null,
+    sofaAnalysis ? "Use this analysis as the placement decision source. Do not fall back to canned positions such as left/right third, wall-side, window-side, or corner-side unless the analysis explicitly chooses that location with visual reasoning. Reference Image 1 remains the highest authority for exact product appearance." : null,
+    sofaAnalysis ? null : "Before generating, visually analyze the uploaded product and optional room reference, then choose the placement from product scale, facing direction, floor plane, wall/window/light cues, and walking clearance. Do not use a fixed left/right/wall/window/corner template.",
     "",
     "SCENE:",
-    `Selected space type and placement plan: ${sceneTypeLine}`,
+    "No user-selected space type is provided. Infer the most suitable room type and room structure from the pre-generation analysis, uploaded product, optional room reference, and selected style.",
     `Create a new original interior scene in this style: ${styleLine}`,
     styleReferenceLine,
-    "Automatically infer the space perspective, floor angle, horizon height, wall position, window position, light direction, furniture scale, and walking clearance from the selected space type before placing the sofa.",
-    "Place the sofa in a reasonable, usable position for the selected space type: living room, balcony, study, bedroom, showroom, model room, office, or hotel suite placement must each feel intentional and physically plausible.",
+    "Automatically infer the space perspective, floor angle, horizon height, wall position, window position, light direction, furniture scale, and walking clearance from the placement analysis before placing the sofa.",
+    "Place the sofa in the specific usable position implied by the analysis. The inferred room function must feel intentional, physically plausible, and coherent with the product, reference image, and style.",
     "Render product and room as one coherent photographed scene with shared perspective, lighting, shadows, grain, depth of field, contact shadows, and floor contact.",
     "The product must be the only seating object. Do not add another sofa, recliner, armchair, chaise, bench, ottoman, dining chair, stool, or background seating group.",
-    "Place the product in a believable seating zone with rug/table/window/wall/floor context and realistic walking clearance.",
+    "Place the product in a believable seating zone chosen by analysis, with rug/table/window/wall/floor context and realistic walking clearance.",
     "The sofa must truly sit on the floor plane. Align legs/base with the floor, add grounded contact shadows under every support point, and prevent floating, sinking into the floor, clipping through walls/furniture, deformation, or scale distortion.",
     "",
     "COMPOSITION:",
