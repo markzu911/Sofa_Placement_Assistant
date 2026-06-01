@@ -576,12 +576,6 @@ select:focus-visible {
   box-shadow: 0 12px 20px rgba(31, 108, 95, 0.22);
 }
 
-.brief-actionbar {
-  padding: 12px 16px 16px;
-  border-top: 1px solid var(--line);
-  background: #ffffff;
-}
-
 .primary-action:hover:not(:disabled) {
   background: var(--green-dark);
   transform: translateY(-1px);
@@ -616,6 +610,20 @@ select:focus-visible {
 .secondary-action:hover:not(:disabled) {
   border-color: var(--green);
   background: #ffffff;
+}
+
+.brief-actionbar {
+  display: grid;
+  grid-template-columns: minmax(112px, 0.45fr) minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.analyze-action {
+  width: 100%;
+  min-width: 0;
 }
 
 .preview-stage {
@@ -897,6 +905,75 @@ select:focus-visible {
   line-height: 1.25;
 }
 
+.analysis-card {
+  display: grid;
+  gap: 10px;
+  margin: 12px 16px;
+  border: 1px solid #d6e3dd;
+  border-radius: var(--radius);
+  background: #ffffff;
+  padding: 12px;
+}
+
+.analysis-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.analysis-card h3 {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.analysis-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: #eef4f1;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.analysis-status.ready {
+  background: #e7f3ee;
+  color: var(--green-dark);
+}
+
+.analysis-status.error {
+  background: #f8ebe5;
+  color: var(--clay);
+}
+
+#analysisText {
+  min-height: 124px;
+  max-height: 260px;
+  width: 100%;
+  margin: 0;
+  overflow: auto;
+  border: 1px solid rgba(220, 227, 223, 0.9);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  padding: 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.65;
+  resize: vertical;
+  white-space: pre-wrap;
+}
+
+#analysisText:focus {
+  border-color: var(--green);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(31, 108, 95, 0.12);
+  outline: 0;
+}
+
 .summary-list {
   display: grid;
   gap: 6px;
@@ -1139,6 +1216,10 @@ select:focus-visible {
   .segmented.three,
   .segmented.four,
   .segmented.two {
+    grid-template-columns: 1fr;
+  }
+
+  .brief-actionbar {
     grid-template-columns: 1fr;
   }
 

@@ -10,7 +10,7 @@ const state = {
   sofaAnalysis: "",
   sofaAnalysisSignature: "",
   analysisAbortController: null,
-  analysisDebounceId: 0,
+  analysisError: false,
   isAnalyzing: false,
   saas: {
     userId: "",
@@ -62,6 +62,7 @@ const elements = {
   styleReferenceMeta: document.querySelector("#styleReferenceMeta"),
   imageSize: document.querySelector("#imageSize"),
   aspectRatio: document.querySelector("#aspectRatio"),
+  analyzeButton: document.querySelector("#analyzeButton"),
   generateButton: document.querySelector("#generateButton"),
   downloadButton: document.querySelector("#downloadButton"),
   modalDownloadButton: document.querySelector("#modalDownloadButton"),
@@ -84,6 +85,8 @@ const elements = {
   summaryView: document.querySelector("#summaryView"),
   summaryModel: document.querySelector("#summaryModel"),
   summarySpec: document.querySelector("#summarySpec"),
+  analysisStatus: document.querySelector("#analysisStatus"),
+  analysisText: document.querySelector("#analysisText"),
   historyPanel: document.querySelector("#historyPanel"),
   historyList: document.querySelector("#historyList"),
   historyCount: document.querySelector("#historyCount"),
@@ -341,14 +344,13 @@ function resetSofaAnalysis({ abort = true } = {}) {
   if (abort && state.analysisAbortController) {
     state.analysisAbortController.abort();
   }
-  if (state.analysisDebounceId) {
-    clearTimeout(state.analysisDebounceId);
-    state.analysisDebounceId = 0;
-  }
   state.sofaAnalysis = "";
   state.sofaAnalysisSignature = "";
   state.analysisAbortController = null;
+  state.analysisError = false;
   state.isAnalyzing = false;
+  renderSofaAnalysis();
+  updateActionState();
 }
 
 function shouldAnalyzePlacement() {
@@ -357,19 +359,52 @@ function shouldAnalyzePlacement() {
   return true;
 }
 
-function scheduleSofaAnalysis() {
-  if (state.analysisDebounceId) {
-    clearTimeout(state.analysisDebounceId);
+function updateActionState() {
+  const hasFreshAnalysis = Boolean(getFreshSofaAnalysis());
+  elements.analyzeButton.disabled = state.isLoading || state.isAnalyzing || !shouldAnalyzePlacement();
+  elements.generateButton.disabled = state.isLoading || state.isAnalyzing || !hasFreshAnalysis;
+}
+
+function setAnalysisText(value) {
+  if ("value" in elements.analysisText) {
+    elements.analysisText.value = value;
+  } else {
+    elements.analysisText.textContent = value;
   }
-  if (!shouldAnalyzePlacement()) return;
-  state.analysisDebounceId = setTimeout(() => {
-    state.analysisDebounceId = 0;
-    analyzeSofaPlacement().catch(() => {});
-  }, 450);
+}
+
+function renderSofaAnalysis() {
+  const analysis = getFreshSofaAnalysis();
+  setAnalysisText(
+    analysis || "上传家具产品图后，先点击 AI 分析。分析完成并输出结果后，可以直接修改分析内容，再点击生成图片。",
+  );
+  elements.analysisStatus.textContent = state.isAnalyzing ? "分析中" : analysis ? "已完成" : state.analysisError ? "失败" : "待分析";
+  elements.analysisStatus.classList.toggle("ready", Boolean(analysis));
+  elements.analysisStatus.classList.toggle("error", Boolean(state.analysisError));
+}
+
+function handleAnalysisEdit() {
+  const value = elements.analysisText.value.trim();
+  state.sofaAnalysis = value;
+  state.sofaAnalysisSignature = value ? getAnalysisSignature() : "";
+  state.analysisError = false;
+  elements.analysisStatus.textContent = value ? "已修改" : "待分析";
+  elements.analysisStatus.classList.toggle("ready", Boolean(value));
+  elements.analysisStatus.classList.remove("error");
+  updateActionState();
 }
 
 async function analyzeSofaPlacement({ force = false } = {}) {
-  if (!shouldAnalyzePlacement()) return "";
+  if (!shouldAnalyzePlacement()) {
+    const message = isCustomStyle() && !state.styleReferenceImage
+      ? "自定义风格需要先上传房间风格参考图。"
+      : "请先上传家具产品图，并从平台入口打开工具。";
+    state.analysisError = true;
+    setMessage(message, true);
+    renderSofaAnalysis();
+    updateActionState();
+    return "";
+  }
   const signature = getAnalysisSignature();
   if (!force && state.sofaAnalysis && state.sofaAnalysisSignature === signature) {
     return state.sofaAnalysis;
@@ -382,6 +417,9 @@ async function analyzeSofaPlacement({ force = false } = {}) {
   const controller = new AbortController();
   state.analysisAbortController = controller;
   state.isAnalyzing = true;
+  state.analysisError = false;
+  renderSofaAnalysis();
+  updateActionState();
   setMessage("正在 AI 分析家具体量、空间线索和最佳摆位...");
 
   try {
@@ -406,14 +444,20 @@ async function analyzeSofaPlacement({ force = false } = {}) {
     }
     state.sofaAnalysis = sofaAnalysis;
     state.sofaAnalysisSignature = signature;
+    state.analysisError = false;
+    renderSofaAnalysis();
+    updateActionState();
     if (!state.isLoading) {
       setMessage("AI 摆位分析完成，可以生成图片。");
     }
     return sofaAnalysis;
   } catch (error) {
     if (error.name === "AbortError") return "";
+    state.analysisError = true;
+    renderSofaAnalysis();
+    updateActionState();
     if (!state.isLoading) {
-      setMessage("AI 摆位分析暂未完成，生成时会重新分析。");
+      setMessage(error.message || "AI 摆位分析失败，请重试。", true);
     }
     return "";
   } finally {
@@ -421,6 +465,8 @@ async function analyzeSofaPlacement({ force = false } = {}) {
       state.analysisAbortController = null;
     }
     state.isAnalyzing = false;
+    renderSofaAnalysis();
+    updateActionState();
   }
 }
 
@@ -445,7 +491,7 @@ async function loadSaasLaunch() {
     } else {
       setMessage("SaaS 已连接，生成成功后会保存到我的图片。");
     }
-    scheduleSofaAnalysis();
+    updateActionState();
   } catch (error) {
     state.saas.launchLoaded = false;
     setMessage(error.message, true);
@@ -512,14 +558,14 @@ async function handleFile(input, key, preview, tile, meta) {
     if (key === "productImage") {
       resetResult();
       resetSofaAnalysis();
-      setMessage(image ? "产品图已作为外观基准锁定，可以生成。" : "");
+      setMessage(image ? "产品图已锁定，请先点击 AI 分析。" : "");
       updatePreviewTitle();
     } else {
       resetSofaAnalysis();
-      setMessage(image ? "房间风格参考图已添加，仅用于风格参考。" : "");
+      setMessage(image ? "房间风格参考图已添加，请重新 AI 分析。" : "");
     }
     updateSummary();
-    scheduleSofaAnalysis();
+    updateActionState();
   } catch (error) {
     input.value = "";
     state[key] = null;
@@ -559,10 +605,10 @@ function setupDrop(tile, input) {
 
 function setLoading(isLoading) {
   state.isLoading = isLoading;
-  elements.generateButton.disabled = isLoading;
   elements.generateButton.classList.toggle("is-loading", isLoading);
   elements.loadingMask.classList.toggle("visible", isLoading);
   updatePreviewTitle();
+  updateActionState();
 }
 
 function isCustomStyle() {
@@ -758,16 +804,13 @@ async function generateImage(event) {
     setMessage("缺少 SaaS 用户上下文，请从平台入口打开工具。", true);
     return;
   }
+  if (!payload.sofaAnalysis) {
+    setMessage("请先点击 AI 分析，并等待分析结果输出后再生成图片。", true);
+    return;
+  }
   setLoading(true);
-  setMessage("正在先分析家具体量与摆放策略，随后生成图片，最长等待约 112 秒");
+  setMessage("正在根据已确认的 AI 分析生成图片，最长等待约 112 秒");
   try {
-    if (!payload.sofaAnalysis) {
-      const sofaAnalysis = await analyzeSofaPlacement({ force: true });
-      payload = {
-        ...buildPayload(),
-        sofaAnalysis,
-      };
-    }
     let result;
     try {
       result = await postGeneratePayload(payload, generateRequestTimeoutMs);
@@ -799,6 +842,8 @@ async function generateImage(event) {
     if (resultAnalysis) {
       state.sofaAnalysis = resultAnalysis;
       state.sofaAnalysisSignature = getAnalysisSignature();
+      state.analysisError = false;
+      renderSofaAnalysis();
     }
     elements.resultImage.src = resultUrl;
     elements.resultImage.classList.add("visible");
@@ -972,6 +1017,10 @@ async function loadConfig() {
   }
 }
 
+function handleAnalyzeClick() {
+  analyzeSofaPlacement({ force: true });
+}
+
 elements.productInput.addEventListener("change", () =>
   handleFile(elements.productInput, "productImage", elements.productPreview, elements.productDrop, elements.productMeta),
 );
@@ -988,7 +1037,7 @@ document.querySelectorAll('input[name="sceneStyle"]').forEach((input) => {
   input.addEventListener("change", () => {
     resetSofaAnalysis();
     updateStyleReferenceState();
-    scheduleSofaAnalysis();
+    updateActionState();
   });
 });
 document.querySelectorAll('input[name="viewType"], input[name="includeModel"]').forEach((input) => {
@@ -999,6 +1048,8 @@ document.querySelectorAll('input[name="viewType"], input[name="includeModel"]').
 });
 elements.imageSize.addEventListener("change", updateSummary);
 elements.aspectRatio.addEventListener("change", updatePreviewRatio);
+elements.analyzeButton.addEventListener("click", handleAnalyzeClick);
+elements.analysisText.addEventListener("input", handleAnalysisEdit);
 elements.form.addEventListener("submit", generateImage);
 elements.downloadButton.addEventListener("click", () => downloadImage());
 elements.modalDownloadButton.addEventListener("click", () =>
@@ -1024,8 +1075,10 @@ setupDrop(elements.productDrop, elements.productInput);
 setupDrop(elements.styleReferenceDrop, elements.styleReferenceInput);
 setupSaasBridge();
 updateStyleReferenceState();
+renderSofaAnalysis();
 updatePreviewTitle();
 updatePreviewRatio();
 fitPreviewFrameFromSelection();
 updateSummary();
+updateActionState();
 loadConfig();

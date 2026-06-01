@@ -264,10 +264,24 @@
                   </div>
                 </dl>
               </section>
+
+              <section class="analysis-card" aria-label="AI 摆位分析">
+                <div class="analysis-card-header">
+                  <div>
+                    <p class="step-label">AI</p>
+                    <h3>摆位分析结果</h3>
+                  </div>
+                  <span class="analysis-status" id="analysisStatus">待分析</span>
+                </div>
+                <textarea id="analysisText" spellcheck="false">上传家具产品图后，先点击 AI 分析。分析完成并输出结果后，可以直接修改分析内容，再点击生成图片。</textarea>
+              </section>
             </div>
 
             <div class="brief-actionbar">
-              <button class="primary-action" id="generateButton" type="submit">
+              <button class="secondary-action analyze-action" id="analyzeButton" type="button" disabled>
+                <span>AI 分析</span>
+              </button>
+              <button class="primary-action" id="generateButton" type="submit" disabled>
                 <span class="action-icon" aria-hidden="true"></span>
                 <span>生成图片</span>
               </button>
