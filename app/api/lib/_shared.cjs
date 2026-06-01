@@ -93,6 +93,15 @@ const PLACEMENT_LOCK_LINE =
 const CUSTOM_SCENE_SPATIAL_FIT_LINE =
   "CUSTOM SCENE SPATIAL FIT HARD RULE: Treat the uploaded room as a real occupied room, not an empty staging set. The product may only be placed on a large continuous unoccupied floor patch with believable clearance for its full footprint, recliner footrest if present, and seated model if present. Do not squeeze a bulky chair/recliner into narrow leftover gaps beside an existing sofa, between an existing sofa and curtains/windows, between sofa and coffee table/rug, beside an air purifier/plant/decor cluster, or inside the existing conversation zone or walking path. A placement is invalid if it would require moving/removing original furniture, cover an existing sofa, block access to a sofa/coffee table/window/TV/cabinet, crowd the curtains, overlap decor, or look like the product was wedged into a corner. If the analysis main placement describes such a cramped or colliding zone, spatial fit overrides the analysis: use the nearest larger open floor zone that preserves all original objects and still matches the room perspective.";
 
+const DESIGNER_PLACEMENT_LINE =
+  "REAL INTERIOR DESIGNER PLACEMENT LOGIC: Before generating, behave like an interior designer on site. Identify windows/floor-to-ceiling glass/balcony/daylight side, TV wall, existing sofa, coffee table, rug, cabinets, doors, decor clusters, walking paths, and usable open floor. For a single-person recliner/lounge chair, prefer a comfortable reading/lounge zone near natural light or the edge of the conversation area, but only if there is real footprint clearance and no blocked path, cabinet, sofa access, window, TV view, coffee table use, or decor cluster. The chair should face naturally toward the room center, coffee table, TV, or main seating group, usually angled about 25-45 degrees rather than squarely pasted to the camera. Keep enough wall/window/furniture clearance and make the side control handle visible when the reference product has one. Never place the product in the exact center of a traffic path, directly in front of the TV, on top of the rug/coffee-table relationship if it blocks use, pressed into curtains/glass, or replacing/covering the original sofa.";
+
+const FUSION_REALISM_LINE =
+  "FUSION PRIORITY: The output must look like one coherent real interior photograph. Do not simply cut out and paste the product into the room image, and do not make a local patch/paint-over. Use the room image to analyze layout, perspective, materials, lighting, color temperature, exposure, lens feel, depth of field, noise, sharpness, shadows, reflections, and existing object relationships; then render a coherent room scene with the product physically belonging there. Match floor plane, wall-floor junction, vanishing points, contact shadows, glossy floor reflections if present, occlusion, light direction, and edge sharpness so the product and model do not look pasted or out of place.";
+
+const MODEL_POSE_LINE =
+  "MODEL POSE HARD RULE: If a model is requested, add exactly one realistic adult lifestyle model seated deeply on the inserted product. Hips and thighs must visibly press into the seat cushion, the back should be supported by the backrest, body weight must be on the cushion, and arms should rest naturally on armrests/lap or hold a small natural pose without hiding the product identity. Legs must obey the product state: feet placed on the floor or recliner footrest with plausible knee bend and gravity; no floating feet, no hovering hips, no standing beside it, no sitting on armrests, no perching on the front edge, no body detached from the chair, no awkward twisted/crossed limbs that hide the cushion/controls. Keep the model secondary and preserve the product silhouette, puffy cushions, armrests, side handle/control, seams, leather texture, base, and scale.";
+
 const ASPECT_RATIOS = new Set(["1:1", "4:3", "3:4", "16:9", "9:16", "21:9", "3:2", "2:3", "5:4", "4:5"]);
 const IMAGE_SIZES = new Set(["2K", "4K"]);
 const MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -228,12 +237,13 @@ function buildSofaAnalysisRequest(payload) {
         ? "5.0 空间适配硬判断：主落位必须来自 4.1 中判为“有效”的最大连续空白地面。不要把产品硬塞到原有主沙发旁、窗帘边、空气净化器旁或茶几与沙发之间的剩余缝隙；这种位置即使有一点空地，也会显得格格不入，必须判为无效。"
         : null,
       "5.1 主落位锁定：用一句话写出后续所有景别必须复用的物理锚点，例如“锁定在某家具/窗/墙/地毯/地砖缝的左/右/前/后某片地面，朝向哪里，与哪些原有物体保持距离”。远景、中景、近景只能改变镜头距离、视野和裁切，不能改变这个物理落位、房间侧位或朝向逻辑。",
+      "5.2 朝向与使用关系：必须明确产品正面朝向、与电视/茶几/主沙发/窗户/房间中心的关系。单人功能椅/躺椅通常应朝向房间中心、茶几、电视或主座位区，角度自然约 25-45 度；侧面功能拉杆要尽量可见。不能背对主要活动区，不能正对窗玻璃贴放，不能像摆拍道具一样只面向镜头。",
       isCustomScene
-        ? "5.2 禁止落位：列出原图中不能摆放的位置，例如电视正前方、茶几上/茶几重叠区、主通道中央、窗户大面积遮挡区、原有沙发坐面/靠背上、柜门开启区、会造成过大比例的位置。"
+        ? "5.3 禁止落位：列出原图中不能摆放的位置，例如电视正前方、茶几上/茶几重叠区、主通道中央、窗户大面积遮挡区、原有沙发坐面/靠背上、柜门开启区、会造成过大比例的位置。"
         : null,
       "6. 远/中/近景延展：必须基于同一个主落位锁定，分别用【远景】、【中景】、【近景】三行说明该如何拉开或靠近相机、扩大或收窄视野、裁切多少环境信息，而不是改变产品所在位置、房间侧位、朝向逻辑或换用备选落位。后续生成时只会启用用户当前选择的那一个景别，另外两个景别必须被忽略。",
       includeModel
-        ? "6.1 模特摆放要求：用户选择添加模特，这是后续生成的硬性要求。请说明必须新增 1 位真实成人模特，且模特只能自然坐在新增产品上，身体重量落在坐垫上，不能坐原有沙发、不能站在旁边、不能遮挡产品主体卖点，并要匹配房间光照、比例和透视。"
+        ? "6.1 模特摆放要求：用户选择添加模特，这是后续生成的硬性要求。请说明必须新增 1 位真实成人模特，且模特只能深坐在新增产品上，臀部和大腿压在坐垫上，背部自然靠住靠背，脚放在地面或脚踏上，姿态生活化且受力真实；不能坐原有沙发、不能站在旁边、不能坐扶手或前沿、不能漂浮、不能遮挡产品主体卖点和侧面拉杆，并要匹配房间光照、比例和透视。"
         : "6.1 模特要求：用户未选择模特，不要新增人物、手、身体、倒影或人形轮廓。",
       "7. 透视与落地要求：相机高度、地面接触、阴影、反射、遮挡、避免穿模和动线阻挡。",
       "8. 生成时要避免的问题：列出最容易出错的点。",
@@ -266,8 +276,8 @@ function buildPrompt(payload, hasStyleReferenceImage) {
   const viewOnlyLine = VIEW_ONLY_CONTRACTS[viewKey] || VIEW_ONLY_CONTRACTS.wide;
   const modelLine = includeModel
     ? isCustomScene
-      ? `MODEL REQUIRED: Add exactly one realistic adult lifestyle model on the newly inserted ${productReference} product. This is mandatory when the user selects model; an output without the seated model is invalid. The person must be visibly present, naturally seated with body weight on the seat cushion, thighs/hips in contact with the cushion, back or arm naturally supported by the product, and feet placed plausibly on the floor or footrest. The model must not sit on, replace, cover, or alter any existing furniture in ${sceneReference}. Keep the person secondary and do not let the body hide the product's silhouette, armrests, backrest, cushions, seams, controls, leather texture, legs/base, or overall identity.`
-      : "MODEL REQUIRED: Add exactly one adult lifestyle model naturally interacting with the product. This is mandatory when the user selects model; an output without the model is invalid. The model must be sitting on the product or leaning back into it with realistic body contact, realistic anatomy, and secondary visual priority, never covering the product's core selling points such as silhouette, armrests, backrest, cushions, seams, material texture, buttons, metal details, or legs."
+      ? `MODEL REQUIRED: Add exactly one realistic adult lifestyle model on the newly inserted ${productReference} product. This is mandatory when the user selects model; an output without the seated model is invalid. ${MODEL_POSE_LINE} The model must not sit on, replace, cover, or alter any existing furniture in ${sceneReference}.`
+      : `MODEL REQUIRED: Add exactly one adult lifestyle model naturally interacting with the product. This is mandatory when the user selects model; an output without the model is invalid. ${MODEL_POSE_LINE}`
     : isCustomScene
       ? "MODEL: No new people, bodies, hands, faces, silhouettes, or reflections of people. Preserve the original room scene and integrate only the uploaded furniture product."
       : "MODEL: No people, bodies, hands, faces, silhouettes, reflections of people, or human figures. Create a clean furniture display image that highlights the product itself.";
@@ -280,7 +290,7 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     ? `CUSTOM SCENE SEATING RULE: ${sceneReference} may already contain sofas, chairs, benches, or other seating. Preserve every existing seating object exactly as part of the original scene. ${productReference} product is the only NEW seating object to add. Do not remove, replace, recolor, resize, remodel, duplicate, or transform any existing seating; do not add any additional new seating beyond the uploaded product.`
     : "The product must be the only seating object. Do not add another sofa, recliner, armchair, chaise, bench, ottoman, dining chair, stool, or background seating group.";
   const productPlacementLine = isCustomScene
-    ? "CUSTOM SCENE PRODUCT PLACEMENT: Add the uploaded product as one new furniture item with realistic scale relative to the existing sofa, coffee table, window, TV cabinet, rug, plants, and floor tiles. It must sit on an available floor area, keep walkable clearance, and avoid blocking the TV, coffee table, window, door/cabinet openings, original sofa, or main traffic path. Match the original glossy floor reflections, contact shadows, light direction, perspective, sharpness, grain, and color temperature so the product does not look out of place."
+    ? "CUSTOM SCENE PRODUCT PLACEMENT: Add the uploaded product as one new furniture item with realistic scale relative to the existing sofa, coffee table, window, TV cabinet, rug, plants, and floor tiles. It must sit on an available floor area, keep walkable clearance, and avoid blocking the TV, coffee table, window, door/cabinet openings, original sofa, or main traffic path. If there is obvious natural light from windows, prioritize a nearby daylight/lounge/reading zone only when it has enough continuous floor clearance and does not crowd curtains, glass, existing sofa, decor, or path. The product should face naturally toward room center, coffee table, TV, or existing seating group, angled about 25-45 degrees when appropriate, with side handle/control visible if present. Match the original glossy floor reflections, contact shadows, light direction, perspective, sharpness, grain, and color temperature so the product does not look out of place."
     : "Place the product in a believable seating zone chosen by analysis, with rug/table/window/wall/floor context and realistic walking clearance.";
   const negativeRulesLine = isCustomScene
     ? "NEGATIVE RULES: no duplicate uploaded product, no wrong product, no changed product style/color/material/texture/seams/arms/back/cushions/footrest/buttons/hardware/outline, no removing or altering original room furniture, no changing existing sofa/chair/table/cabinet/window/wall/floor/ceiling/decor, no new unrelated furniture or decorations, no distorted human body, no messy background, no text, no watermark, no price tag, no logo overlay, no low resolution, no over-filtered look, no cartoon style, no malformed furniture, no pasted cutout edge, no floating product, no clipping, no deformation, no mismatched perspective, no oversized or undersized product, no blocking TV/coffee table/window/pathway."
@@ -314,13 +324,20 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     `Preserve ${productReference} product identity: category, single-item seat count, physical size class, proportions, silhouette, armrests, backrest, cushion layout, footrest, side controls, hardware, seams, legs/base, upholstery material, leather/fabric texture, color, wrinkles, and visible details.`,
     "Do not redesign, recolor, reupholster, widen, narrow, stretch, squash, change height, change seat count, change product category, change armrest/back/cushion structure, add pillows that hide identity, or invent missing product details.",
     productIntegrationLine,
+    "",
+    "REFERENCE-STYLE GENERATION PRINCIPLES:",
+    DESIGNER_PLACEMENT_LINE,
+    FUSION_REALISM_LINE,
+    includeModel ? MODEL_POSE_LINE : null,
     sofaAnalysis ? "" : null,
     sofaAnalysis ? "PRE-GENERATION SOFA AND PLACEMENT ANALYSIS:" : null,
     sofaAnalysis || null,
     sofaAnalysis ? `Treat the analysis above as the binding generation contract, including any user edits. Use the analysis main placement / 主落位 as the only physical placement only when it passes the spatial fit hard rules below. The backup/备选 placement is not allowed for normal generation and must not be selected just because the view is wide, medium, close, or composition looks nicer. For camera/view instructions, only the analysis bullet matching CURRENT SELECTED VIEW (${viewLabel}) is active; all other view bullets in the analysis are inactive. Follow the main placement, forbidden areas, scale notes, active camera notes, and preservation list. Do not invent a different placement, ignore forbidden areas, or fall back to canned positions such as left/right third, wall-side, window-side, or corner-side unless the analysis explicitly chooses that location as the main placement with visual reasoning. If the analysis text conflicts with the current USER MODEL OPTION or MODEL REQUIRED/MODEL rules, the current model option wins. If the analysis conflicts with CUSTOM SCENE SPATIAL FIT HARD RULE, the spatial fit hard rule wins. ${productReference} remains the highest authority for exact product appearance.` : null,
     sofaAnalysis ? null : "Before generating, visually analyze the uploaded product and optional room reference, then choose the placement from product scale, facing direction, floor plane, wall/window/light cues, and walking clearance. Do not use a fixed left/right/wall/window/corner template.",
     PLACEMENT_LOCK_LINE,
+    DESIGNER_PLACEMENT_LINE,
     isCustomScene ? CUSTOM_SCENE_SPATIAL_FIT_LINE : null,
+    FUSION_REALISM_LINE,
     "",
     "SCENE:",
     isCustomScene
