@@ -7,7 +7,6 @@ import shared from "../lib/_shared.cjs";
 const {
   DEFAULT_MODEL,
   buildGeminiRequest,
-  buildSofaAnalysisRequest,
 } = shared;
 const {
   buildResultFileName,
@@ -17,7 +16,7 @@ const {
   saveResultImageToSaas,
   verifyBeforeGenerate,
 } = saas;
-const { callImageModel, callTextModel } = imageModel;
+const { callImageModel } = imageModel;
 const { AppError, createLogger, createRequestId } = runtimeLib;
 
 export const runtime = "nodejs";
@@ -26,8 +25,6 @@ export const maxDuration = 120;
 
 const SYNC_RESPONSE_BUDGET_MS = 112000;
 const SAVE_RESULT_MIN_BUDGET_MS = 18000;
-const ANALYSIS_TIMEOUT_MS = 18000;
-
 function normalizeAnalysisText(value) {
   return String(value || "")
     .replace(/\s+\n/g, "\n")
@@ -95,37 +92,15 @@ export async function POST(request) {
     }
 
     buildGeminiRequest(payload);
-    const analysisRequest = buildSofaAnalysisRequest(payload);
     await verifyBeforeGenerate(toolContext, logger);
 
     let sofaAnalysis = normalizeAnalysisText(payload.sofaAnalysis);
-    if (!payload.retryMode) {
-      if (sofaAnalysis) {
-        logger.log("analysis.reuse", {
-          analysisLength: sofaAnalysis.length,
-        });
-      } else {
-        const analysisStartedAt = Date.now();
-        logger.log("analysis.start");
-        try {
-          sofaAnalysis = await callTextModel({
-            ai,
-            geminiRequest: analysisRequest,
-            timeoutMs: ANALYSIS_TIMEOUT_MS,
-          });
-          logger.log("analysis.success", {
-            durationMs: Date.now() - analysisStartedAt,
-            analysisLength: sofaAnalysis.length,
-          });
-        } catch (error) {
-          logger.log("analysis.skip", {
-            level: "warn",
-            durationMs: Date.now() - analysisStartedAt,
-            errorMessage: error.message,
-          });
-        }
-      }
+    if (!sofaAnalysis) {
+      throw new AppError("请先完成 AI 分析，并确认分析结果后再生成图片。", 400);
     }
+    logger.log("analysis.reuse", {
+      analysisLength: sofaAnalysis.length,
+    });
 
     const geminiRequest = buildGeminiRequest({
       ...payload,
