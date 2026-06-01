@@ -75,6 +75,9 @@ const NATURAL_INTERIOR_COMPOSITION =
 const PLACEMENT_LOCK_LINE =
   "PHYSICAL PLACEMENT LOCK: First read the user's analysis and identify the single recommended 主落位 / main placement. That physical floor zone is locked. Use the main placement only; the backup/备选 placement is documentation and must not be used unless the analysis explicitly says the main placement is impossible. Across wide, medium, and close views, keep the product in the same room-side and same relationship to fixed landmarks such as the TV cabinet, window, sofa, coffee table, rug, curtains, air purifier, plants, wall edges, floor tile seams, and walking path. Only the camera distance, field of view, crop, and slight camera angle may change. Do not relocate the product to a different empty area, do not switch to a different corner/side, and do not change the product's logical facing direction because of the selected view.";
 
+const CUSTOM_SCENE_SPATIAL_FIT_LINE =
+  "CUSTOM SCENE SPATIAL FIT HARD RULE: Treat the uploaded room as a real occupied room, not an empty staging set. The product may only be placed on a large continuous unoccupied floor patch with believable clearance for its full footprint, recliner footrest if present, and seated model if present. Do not squeeze a bulky chair/recliner into narrow leftover gaps beside an existing sofa, between an existing sofa and curtains/windows, between sofa and coffee table/rug, beside an air purifier/plant/decor cluster, or inside the existing conversation zone or walking path. A placement is invalid if it would require moving/removing original furniture, cover an existing sofa, block access to a sofa/coffee table/window/TV/cabinet, crowd the curtains, overlap decor, or look like the product was wedged into a corner. If the analysis main placement describes such a cramped or colliding zone, spatial fit overrides the analysis: use the nearest larger open floor zone that preserves all original objects and still matches the room perspective.";
+
 const ASPECT_RATIOS = new Set(["1:1", "4:3", "3:4", "16:9", "9:16", "21:9", "3:2", "2:3", "5:4", "4:5"]);
 const IMAGE_SIZES = new Set(["2K", "4K"]);
 const MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -202,7 +205,13 @@ function buildSofaAnalysisRequest(payload) {
       isCustomScene
         ? "4. 原图空间线索判断：提取可用地面、可用墙边/窗边/角落、通道、门柜开启区、已有家具关系、视觉中心和不应遮挡的位置。如果原图已有沙发、茶几、电视柜、窗户、地毯、绿植、边柜等，它们必须保持原样，不能被新增产品替换或改造。"
         : "4. 空间线索判断：如果有 Reference Image 2，请提取可用墙面、窗光、地面透视、通道、视觉中心和不应遮挡的位置；如果没有参考图，请基于产品比例、功能和风格自行推断房间结构。",
+      isCustomScene
+        ? "4.1 可用地面排除表：先列出至少 3 个候选区域，并逐一判断“有效/无效”。必须优先排除窄缝和拥挤夹角：原有沙发与窗帘/窗户之间、原有沙发与茶几/地毯之间、空气净化器/绿植/装饰物旁边、主通道、电视观看动线、柜门开启区。如果产品是厚重功能椅/躺椅，还要预留脚踏展开、模特坐下和四周通行空间；不满足则判为无效，不能当主落位。"
+        : null,
       "5. 摆放决策：不要套用固定候选位置。请给出 1 个主落位和 1 个备选落位，说明推荐落点、朝向、离墙/离窗/离茶几/离通道关系、比例尺度和原因；自定义场景下必须优先不破坏原图结构和已有物品关系，产品只能作为新增单件家具落在真实可用地面上，不能挡住电视、茶几、窗户、门柜开启区、主要通道或原有沙发。备选落位只作为用户后续手动改分析时的参考，不能用于远/中/近景自动切换。",
+      isCustomScene
+        ? "5.0 空间适配硬判断：主落位必须来自 4.1 中判为“有效”的最大连续空白地面。不要把产品硬塞到原有主沙发旁、窗帘边、空气净化器旁或茶几与沙发之间的剩余缝隙；这种位置即使有一点空地，也会显得格格不入，必须判为无效。"
+        : null,
       "5.1 主落位锁定：用一句话写出后续所有景别必须复用的物理锚点，例如“锁定在某家具/窗/墙/地毯/地砖缝的左/右/前/后某片地面，朝向哪里，与哪些原有物体保持距离”。远景、中景、近景只能改变镜头距离、视野和裁切，不能改变这个物理落位、房间侧位或朝向逻辑。",
       isCustomScene
         ? "5.2 禁止落位：列出原图中不能摆放的位置，例如电视正前方、茶几上/茶几重叠区、主通道中央、窗户大面积遮挡区、原有沙发坐面/靠背上、柜门开启区、会造成过大比例的位置。"
@@ -288,9 +297,10 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     sofaAnalysis ? "" : null,
     sofaAnalysis ? "PRE-GENERATION SOFA AND PLACEMENT ANALYSIS:" : null,
     sofaAnalysis || null,
-    sofaAnalysis ? `Treat the analysis above as the binding generation contract, including any user edits. Use the analysis main placement / 主落位 as the only physical placement. The backup/备选 placement is not allowed for normal generation and must not be selected just because the view is wide, medium, close, or composition looks nicer. Follow the main placement, forbidden areas, scale notes, camera notes, and preservation list. Do not invent a different placement, ignore forbidden areas, or fall back to canned positions such as left/right third, wall-side, window-side, or corner-side unless the analysis explicitly chooses that location as the main placement with visual reasoning. If the analysis text conflicts with the current USER MODEL OPTION or MODEL REQUIRED/MODEL rules, the current model option wins. ${productReference} remains the highest authority for exact product appearance.` : null,
+    sofaAnalysis ? `Treat the analysis above as the binding generation contract, including any user edits. Use the analysis main placement / 主落位 as the only physical placement only when it passes the spatial fit hard rules below. The backup/备选 placement is not allowed for normal generation and must not be selected just because the view is wide, medium, close, or composition looks nicer. Follow the main placement, forbidden areas, scale notes, camera notes, and preservation list. Do not invent a different placement, ignore forbidden areas, or fall back to canned positions such as left/right third, wall-side, window-side, or corner-side unless the analysis explicitly chooses that location as the main placement with visual reasoning. If the analysis text conflicts with the current USER MODEL OPTION or MODEL REQUIRED/MODEL rules, the current model option wins. If the analysis conflicts with CUSTOM SCENE SPATIAL FIT HARD RULE, the spatial fit hard rule wins. ${productReference} remains the highest authority for exact product appearance.` : null,
     sofaAnalysis ? null : "Before generating, visually analyze the uploaded product and optional room reference, then choose the placement from product scale, facing direction, floor plane, wall/window/light cues, and walking clearance. Do not use a fixed left/right/wall/window/corner template.",
     PLACEMENT_LOCK_LINE,
+    isCustomScene ? CUSTOM_SCENE_SPATIAL_FIT_LINE : null,
     "",
     "SCENE:",
     isCustomScene
@@ -308,6 +318,7 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     "Render product and room as one coherent photographed scene with shared perspective, lighting, shadows, grain, depth of field, contact shadows, and floor contact.",
     seatingRuleLine,
     productPlacementLine,
+    isCustomScene ? "For custom scene mode, natural placement is more important than product prominence: the product should look intentionally placed in a believable lounge/reading/use zone, never inserted into a narrow leftover gap merely because it is visible." : null,
     "The product must truly sit on the floor plane. Align legs/base with the floor, add grounded contact shadows under every support point, and prevent floating, sinking into the floor, clipping through walls/furniture, deformation, or scale distortion.",
     "",
     "COMPOSITION:",
