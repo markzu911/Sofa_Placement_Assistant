@@ -62,19 +62,23 @@ const STYLE_PRESETS = {
 
 const VIEW_PRESETS = {
   wide:
-    "VIEW = 远景 / WIDE. 远景表示房间可见度最大、视野最广，能看到完整或接近完整的房间关系、墙地交界、窗/电视/茶几/通道等空间线索。相机可选择符合房间透视的自然机位和角度，不必固定原图角度，但必须围绕分析确定的合理落位拍摄。产品完整可读，约占画面 8-18%，不要超过画面宽度 32% 或高度 36%。不得为了远景而随意移动、缩放、贴图或悬浮产品。",
+    "VIEW = 远景 / WIDE. 远景表示房间可见度最大、视野最广，能看到完整或接近完整的房间关系、墙地交界、窗/电视/茶几/通道等空间线索。必须使用同一个已锁定主落位，不能换到房间另一侧、中央或备选落位；相机只是后退或使用更广视野。产品完整可读，约占画面 8-18%，不要超过画面宽度 32% 或高度 36%。不得为了远景而移动、缩放、贴图或悬浮产品。",
   mid:
-    "VIEW = 中景 / MEDIUM. 中景表示相对距离商品更近、视野比远景稍小，重点呈现产品与周边茶几、地毯、窗光、原有家具和通道的协调关系。相机角度可多样，但必须符合房间透视、地面平面和分析落位。产品约占画面 22-38%，边界约占画面宽或高 36-58%。不得把中景做成孤立产品照或随意居中摆拍。",
+    "VIEW = 中景 / MEDIUM. 中景表示相对距离商品更近、视野比远景稍小，重点呈现产品与周边茶几、地毯、窗光、原有家具和通道的协调关系。必须使用同一个已锁定主落位，不能从远景位置改到新的地面区域；相机只是靠近、收窄视野或轻微调整拍摄角度。产品约占画面 22-38%，边界约占画面宽或高 36-58%。不得把中景做成孤立产品照、随意居中摆拍或改变产品与房间地标的关系。",
   close:
-    "VIEW = 近景 / CLOSE. 近景表示镜头更靠近商品，视野最小，用来突出材质、坐垫、扶手、靠背、缝线、脚架/底座、功能把手和光影细节。相机角度可以根据商品和房间自然选择，但仍必须发生在分析确定的合理摆放位置，不能把产品挪到不属于场景的位置。产品约占画面 55-82%，需保留地面接触、接触阴影和少量真实环境信息。可轻微裁切边缘，但不能丢失品类、座位数、主体轮廓和关键卖点。",
+    "VIEW = 近景 / CLOSE. 近景表示镜头更靠近商品，视野最小，用来突出材质、坐垫、扶手、靠背、缝线、脚架/底座、功能把手和光影细节。必须使用同一个已锁定主落位，不能把产品搬到窗前、房间中央、沙发旁或其他更显眼的新位置；相机只是更近、局部裁切或轻微转角取景。产品约占画面 55-82%，需保留地面接触、接触阴影和少量真实环境信息。可轻微裁切边缘，但不能丢失品类、座位数、主体轮廓和关键卖点。",
 };
 
 const NATURAL_INTERIOR_COMPOSITION =
-  "Use believable interior photography: straight verticals, consistent floor plane, correct horizon height, realistic lens, natural light direction, contact shadows, reflected light, and coherent sharpness/noise. Wide/medium/close control field of view and distance to the product; camera angle may vary as long as it respects the room perspective, furniture layout, walking clearance, and analysis-based placement.";
+  "Use believable interior photography: straight verticals, consistent floor plane, correct horizon height, realistic lens, natural light direction, contact shadows, reflected light, and coherent sharpness/noise. Wide/medium/close control field of view and distance to the product; camera angle may vary only by moving the camera around the locked placement, while the product's physical floor zone, room-side, base contact point, facing direction, and relationship to landmarks must remain consistent.";
+
+const PLACEMENT_LOCK_LINE =
+  "PHYSICAL PLACEMENT LOCK: First read the user's analysis and identify the single recommended 主落位 / main placement. That physical floor zone is locked. Use the main placement only; the backup/备选 placement is documentation and must not be used unless the analysis explicitly says the main placement is impossible. Across wide, medium, and close views, keep the product in the same room-side and same relationship to fixed landmarks such as the TV cabinet, window, sofa, coffee table, rug, curtains, air purifier, plants, wall edges, floor tile seams, and walking path. Only the camera distance, field of view, crop, and slight camera angle may change. Do not relocate the product to a different empty area, do not switch to a different corner/side, and do not change the product's logical facing direction because of the selected view.";
 
 const ASPECT_RATIOS = new Set(["1:1", "4:3", "3:4", "16:9", "9:16", "21:9", "3:2", "2:3", "5:4", "4:5"]);
 const IMAGE_SIZES = new Set(["2K", "4K"]);
 const MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const MAX_ANALYSIS_CHARS = 6000;
 
 function sendJson(res, statusCode, payload) {
   const body = JSON.stringify(payload);
@@ -148,7 +152,7 @@ function normalizeAnalysisText(value) {
     .replace(/\s+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
-    .slice(0, 2200);
+    .slice(0, MAX_ANALYSIS_CHARS);
 }
 
 function buildSofaAnalysisRequest(payload) {
@@ -198,11 +202,12 @@ function buildSofaAnalysisRequest(payload) {
       isCustomScene
         ? "4. 原图空间线索判断：提取可用地面、可用墙边/窗边/角落、通道、门柜开启区、已有家具关系、视觉中心和不应遮挡的位置。如果原图已有沙发、茶几、电视柜、窗户、地毯、绿植、边柜等，它们必须保持原样，不能被新增产品替换或改造。"
         : "4. 空间线索判断：如果有 Reference Image 2，请提取可用墙面、窗光、地面透视、通道、视觉中心和不应遮挡的位置；如果没有参考图，请基于产品比例、功能和风格自行推断房间结构。",
-      "5. 摆放决策：不要套用固定候选位置。请给出 1 个主落位和 1 个备选落位，说明推荐落点、朝向、离墙/离窗/离茶几/离通道关系、比例尺度和原因；自定义场景下必须优先不破坏原图结构和已有物品关系，产品只能作为新增单件家具落在真实可用地面上，不能挡住电视、茶几、窗户、门柜开启区、主要通道或原有沙发。",
+      "5. 摆放决策：不要套用固定候选位置。请给出 1 个主落位和 1 个备选落位，说明推荐落点、朝向、离墙/离窗/离茶几/离通道关系、比例尺度和原因；自定义场景下必须优先不破坏原图结构和已有物品关系，产品只能作为新增单件家具落在真实可用地面上，不能挡住电视、茶几、窗户、门柜开启区、主要通道或原有沙发。备选落位只作为用户后续手动改分析时的参考，不能用于远/中/近景自动切换。",
+      "5.1 主落位锁定：用一句话写出后续所有景别必须复用的物理锚点，例如“锁定在某家具/窗/墙/地毯/地砖缝的左/右/前/后某片地面，朝向哪里，与哪些原有物体保持距离”。远景、中景、近景只能改变镜头距离、视野和裁切，不能改变这个物理落位、房间侧位或朝向逻辑。",
       isCustomScene
-        ? "5.1 禁止落位：列出原图中不能摆放的位置，例如电视正前方、茶几上/茶几重叠区、主通道中央、窗户大面积遮挡区、原有沙发坐面/靠背上、柜门开启区、会造成过大比例的位置。"
+        ? "5.2 禁止落位：列出原图中不能摆放的位置，例如电视正前方、茶几上/茶几重叠区、主通道中央、窗户大面积遮挡区、原有沙发坐面/靠背上、柜门开启区、会造成过大比例的位置。"
         : null,
-      "6. 远/中/近景延展：同一个摆放决策下，分别说明远景、中景、近景该如何拉开或靠近相机，而不是改变产品位置、比例或角度。",
+      "6. 远/中/近景延展：必须基于同一个主落位锁定，分别说明远景、中景、近景该如何拉开或靠近相机、扩大或收窄视野、裁切多少环境信息，而不是改变产品所在位置、房间侧位、朝向逻辑或换用备选落位。",
       includeModel
         ? "6.1 模特摆放要求：用户选择添加模特，这是后续生成的硬性要求。请说明必须新增 1 位真实成人模特，且模特只能自然坐在新增产品上，身体重量落在坐垫上，不能坐原有沙发、不能站在旁边、不能遮挡产品主体卖点，并要匹配房间光照、比例和透视。"
         : "6.1 模特要求：用户未选择模特，不要新增人物、手、身体、倒影或人形轮廓。",
@@ -283,8 +288,9 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     sofaAnalysis ? "" : null,
     sofaAnalysis ? "PRE-GENERATION SOFA AND PLACEMENT ANALYSIS:" : null,
     sofaAnalysis || null,
-    sofaAnalysis ? `Treat the analysis above as the binding generation contract, including any user edits. Follow its main placement, backup placement, forbidden areas, scale notes, camera notes, and preservation list. Do not invent a different placement, ignore forbidden areas, or fall back to canned positions such as left/right third, wall-side, window-side, or corner-side unless the analysis explicitly chooses that location with visual reasoning. If the analysis text conflicts with the current USER MODEL OPTION or MODEL REQUIRED/MODEL rules, the current model option wins. ${productReference} remains the highest authority for exact product appearance.` : null,
+    sofaAnalysis ? `Treat the analysis above as the binding generation contract, including any user edits. Use the analysis main placement / 主落位 as the only physical placement. The backup/备选 placement is not allowed for normal generation and must not be selected just because the view is wide, medium, close, or composition looks nicer. Follow the main placement, forbidden areas, scale notes, camera notes, and preservation list. Do not invent a different placement, ignore forbidden areas, or fall back to canned positions such as left/right third, wall-side, window-side, or corner-side unless the analysis explicitly chooses that location as the main placement with visual reasoning. If the analysis text conflicts with the current USER MODEL OPTION or MODEL REQUIRED/MODEL rules, the current model option wins. ${productReference} remains the highest authority for exact product appearance.` : null,
     sofaAnalysis ? null : "Before generating, visually analyze the uploaded product and optional room reference, then choose the placement from product scale, facing direction, floor plane, wall/window/light cues, and walking clearance. Do not use a fixed left/right/wall/window/corner template.",
+    PLACEMENT_LOCK_LINE,
     "",
     "SCENE:",
     isCustomScene
@@ -305,10 +311,10 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     "The product must truly sit on the floor plane. Align legs/base with the floor, add grounded contact shadows under every support point, and prevent floating, sinking into the floor, clipping through walls/furniture, deformation, or scale distortion.",
     "",
     "COMPOSITION:",
-    "VIEW MEANING: The selected wide/medium/close option controls field of view, camera distance, and image coverage. It must not override placement analysis, move the product to a different logical position, resize the product body, rotate it into an impossible angle, or turn it into a pasted cutout. Camera angle may be varied for a natural shot, but only if the angle still fits the room perspective, product placement, and walking clearance.",
+    "VIEW MEANING: The selected wide/medium/close option controls field of view, camera distance, and image coverage only. It must not override the placement lock, move the product to a different logical position, resize the product body, rotate it into an impossible angle, or turn it into a pasted cutout. Camera angle may be varied for a natural shot, but only by photographing the same locked physical placement from a believable camera position.",
     viewLine,
     NATURAL_INTERIOR_COMPOSITION,
-    "Wide/mid/close must be created by camera distance and framing only, not by resizing the object. Product perspective may be minimally adjusted only to match the room floor plane and camera.",
+    "Wide/mid/close must be created by camera distance, field of view, framing, and crop only, not by relocating or resizing the object. Product perspective may be minimally adjusted only to match the room floor plane and camera. The product's floor contact zone and relationship to nearby room landmarks must stay the same.",
     modelLine,
     `Aspect ratio: ${aspectRatio}. Single image output.`,
     "",

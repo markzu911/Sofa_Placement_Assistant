@@ -25,12 +25,13 @@ export const maxDuration = 120;
 
 const SYNC_RESPONSE_BUDGET_MS = 112000;
 const SAVE_RESULT_MIN_BUDGET_MS = 18000;
+const MAX_ANALYSIS_CHARS = 6000;
 function normalizeAnalysisText(value) {
   return String(value || "")
     .replace(/\s+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
-    .slice(0, 2200);
+    .slice(0, MAX_ANALYSIS_CHARS);
 }
 
 function isRenderableImageUrl(value) {
