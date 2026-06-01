@@ -100,7 +100,7 @@ const generateRequestTimeoutMs = 112000;
 const requestImageTargetBytes = 320 * 1024;
 const requestImageMaxDimension = 1600;
 const requestImageMinDimension = 720;
-const analysisPromptVersion = "spatial-fit-v3";
+const analysisPromptVersion = "selected-view-v4";
 const defaultMetaText = {
   productImage: "PNG / JPG / WEBP，8MB 以内",
   styleReferenceImage: "可选，PNG / JPG / WEBP，8MB 以内",

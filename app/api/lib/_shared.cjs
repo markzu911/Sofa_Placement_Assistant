@@ -69,6 +69,21 @@ const VIEW_PRESETS = {
     "VIEW = 近景 / CLOSE. 近景表示镜头更靠近商品，视野最小，用来突出材质、坐垫、扶手、靠背、缝线、脚架/底座、功能把手和光影细节。必须使用同一个已锁定主落位，不能把产品搬到窗前、房间中央、沙发旁或其他更显眼的新位置；相机只是更近、局部裁切或轻微转角取景。产品约占画面 55-82%，需保留地面接触、接触阴影和少量真实环境信息。可轻微裁切边缘，但不能丢失品类、座位数、主体轮廓和关键卖点。",
 };
 
+const VIEW_LABELS = {
+  wide: "远景 / WIDE",
+  mid: "中景 / MEDIUM",
+  close: "近景 / CLOSE",
+};
+
+const VIEW_ONLY_CONTRACTS = {
+  wide:
+    "SELECTED VIEW ONLY = 远景 / WIDE. Generate a room-overview image. The room must be highly visible: include broad floor area, fixed room landmarks, wall/floor relationships, window/TV/sofa/coffee-table context when present, and enough ceiling or side-wall cues to read the whole space. Product should be a smaller integrated furniture element, not the hero close-up. Ignore medium-view and close-view bullets in the analysis.",
+  mid:
+    "SELECTED VIEW ONLY = 中景 / MEDIUM. Generate a medium-distance image. The camera is closer to the product than wide view and the room visibility is moderately reduced, but still show meaningful surrounding context such as nearby rug/table/window/sofa/floor and walking clearance. Product is the clear subject, but not an extreme detail shot. Ignore wide-view and close-view bullets in the analysis.",
+  close:
+    "SELECTED VIEW ONLY = 近景 / CLOSE. Generate a close product-focused image. The camera is nearest to the product, with the product filling most of the frame and showing upholstery/material/seams/controls/armrest/backrest details. Keep only enough room context to prove it remains in the same locked placement, such as a bit of floor contact, shadow, reflection, and blurred or partial background landmarks. Ignore wide-view and medium-view bullets in the analysis.",
+};
+
 const NATURAL_INTERIOR_COMPOSITION =
   "Use believable interior photography: straight verticals, consistent floor plane, correct horizon height, realistic lens, natural light direction, contact shadows, reflected light, and coherent sharpness/noise. Wide/medium/close control field of view and distance to the product; camera angle may vary only by moving the camera around the locked placement, while the product's physical floor zone, room-side, base contact point, facing direction, and relationship to landmarks must remain consistent.";
 
@@ -216,7 +231,7 @@ function buildSofaAnalysisRequest(payload) {
       isCustomScene
         ? "5.2 禁止落位：列出原图中不能摆放的位置，例如电视正前方、茶几上/茶几重叠区、主通道中央、窗户大面积遮挡区、原有沙发坐面/靠背上、柜门开启区、会造成过大比例的位置。"
         : null,
-      "6. 远/中/近景延展：必须基于同一个主落位锁定，分别说明远景、中景、近景该如何拉开或靠近相机、扩大或收窄视野、裁切多少环境信息，而不是改变产品所在位置、房间侧位、朝向逻辑或换用备选落位。",
+      "6. 远/中/近景延展：必须基于同一个主落位锁定，分别用【远景】、【中景】、【近景】三行说明该如何拉开或靠近相机、扩大或收窄视野、裁切多少环境信息，而不是改变产品所在位置、房间侧位、朝向逻辑或换用备选落位。后续生成时只会启用用户当前选择的那一个景别，另外两个景别必须被忽略。",
       includeModel
         ? "6.1 模特摆放要求：用户选择添加模特，这是后续生成的硬性要求。请说明必须新增 1 位真实成人模特，且模特只能自然坐在新增产品上，身体重量落在坐垫上，不能坐原有沙发、不能站在旁边、不能遮挡产品主体卖点，并要匹配房间光照、比例和透视。"
         : "6.1 模特要求：用户未选择模特，不要新增人物、手、身体、倒影或人形轮廓。",
@@ -247,6 +262,8 @@ function buildPrompt(payload, hasStyleReferenceImage) {
   const imageSize = String(payload.imageSize || "2K").toUpperCase();
   const styleLine = STYLE_PRESETS[styleKey] || STYLE_PRESETS.modern;
   const viewLine = VIEW_PRESETS[viewKey] || VIEW_PRESETS.wide;
+  const viewLabel = VIEW_LABELS[viewKey] || VIEW_LABELS.wide;
+  const viewOnlyLine = VIEW_ONLY_CONTRACTS[viewKey] || VIEW_ONLY_CONTRACTS.wide;
   const modelLine = includeModel
     ? isCustomScene
       ? `MODEL REQUIRED: Add exactly one realistic adult lifestyle model on the newly inserted ${productReference} product. This is mandatory when the user selects model; an output without the seated model is invalid. The person must be visibly present, naturally seated with body weight on the seat cushion, thighs/hips in contact with the cushion, back or arm naturally supported by the product, and feet placed plausibly on the floor or footrest. The model must not sit on, replace, cover, or alter any existing furniture in ${sceneReference}. Keep the person secondary and do not let the body hide the product's silhouette, armrests, backrest, cushions, seams, controls, leather texture, legs/base, or overall identity.`
@@ -289,6 +306,9 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     includeModel
       ? "USER MODEL OPTION: The user selected 添加模特. The final image must include exactly one realistic adult model seated on the inserted product with real body contact."
       : "USER MODEL OPTION: The user selected 无模特. The final image must not include any person, body part, silhouette, or human reflection.",
+    `CURRENT SELECTED VIEW: ${viewLabel}. This is the only active camera-distance/view instruction for this generation request.`,
+    "If the analysis contains separate wide / medium / close suggestions, use only the section matching CURRENT SELECTED VIEW and ignore the other two sections completely.",
+    viewOnlyLine,
     "",
     "CRITICAL PRODUCT PRESERVATION:",
     `Preserve ${productReference} product identity: category, single-item seat count, physical size class, proportions, silhouette, armrests, backrest, cushion layout, footrest, side controls, hardware, seams, legs/base, upholstery material, leather/fabric texture, color, wrinkles, and visible details.`,
@@ -297,7 +317,7 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     sofaAnalysis ? "" : null,
     sofaAnalysis ? "PRE-GENERATION SOFA AND PLACEMENT ANALYSIS:" : null,
     sofaAnalysis || null,
-    sofaAnalysis ? `Treat the analysis above as the binding generation contract, including any user edits. Use the analysis main placement / 主落位 as the only physical placement only when it passes the spatial fit hard rules below. The backup/备选 placement is not allowed for normal generation and must not be selected just because the view is wide, medium, close, or composition looks nicer. Follow the main placement, forbidden areas, scale notes, camera notes, and preservation list. Do not invent a different placement, ignore forbidden areas, or fall back to canned positions such as left/right third, wall-side, window-side, or corner-side unless the analysis explicitly chooses that location as the main placement with visual reasoning. If the analysis text conflicts with the current USER MODEL OPTION or MODEL REQUIRED/MODEL rules, the current model option wins. If the analysis conflicts with CUSTOM SCENE SPATIAL FIT HARD RULE, the spatial fit hard rule wins. ${productReference} remains the highest authority for exact product appearance.` : null,
+    sofaAnalysis ? `Treat the analysis above as the binding generation contract, including any user edits. Use the analysis main placement / 主落位 as the only physical placement only when it passes the spatial fit hard rules below. The backup/备选 placement is not allowed for normal generation and must not be selected just because the view is wide, medium, close, or composition looks nicer. For camera/view instructions, only the analysis bullet matching CURRENT SELECTED VIEW (${viewLabel}) is active; all other view bullets in the analysis are inactive. Follow the main placement, forbidden areas, scale notes, active camera notes, and preservation list. Do not invent a different placement, ignore forbidden areas, or fall back to canned positions such as left/right third, wall-side, window-side, or corner-side unless the analysis explicitly chooses that location as the main placement with visual reasoning. If the analysis text conflicts with the current USER MODEL OPTION or MODEL REQUIRED/MODEL rules, the current model option wins. If the analysis conflicts with CUSTOM SCENE SPATIAL FIT HARD RULE, the spatial fit hard rule wins. ${productReference} remains the highest authority for exact product appearance.` : null,
     sofaAnalysis ? null : "Before generating, visually analyze the uploaded product and optional room reference, then choose the placement from product scale, facing direction, floor plane, wall/window/light cues, and walking clearance. Do not use a fixed left/right/wall/window/corner template.",
     PLACEMENT_LOCK_LINE,
     isCustomScene ? CUSTOM_SCENE_SPATIAL_FIT_LINE : null,
@@ -322,6 +342,8 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     "The product must truly sit on the floor plane. Align legs/base with the floor, add grounded contact shadows under every support point, and prevent floating, sinking into the floor, clipping through walls/furniture, deformation, or scale distortion.",
     "",
     "COMPOSITION:",
+    `ONLY GENERATE THIS VIEW: ${viewLabel}. Do not output a hybrid of wide/medium/close. Do not use camera-distance instructions from the other two view types.`,
+    viewOnlyLine,
     "VIEW MEANING: The selected wide/medium/close option controls field of view, camera distance, and image coverage only. It must not override the placement lock, move the product to a different logical position, resize the product body, rotate it into an impossible angle, or turn it into a pasted cutout. Camera angle may be varied for a natural shot, but only by photographing the same locked physical placement from a believable camera position.",
     viewLine,
     NATURAL_INTERIOR_COMPOSITION,
