@@ -334,6 +334,7 @@ function getAnalysisSignature() {
     product: getImageSignature(state.productImage),
     styleReference: getImageSignature(state.styleReferenceImage),
     sceneStyle: getCheckedValue("sceneStyle"),
+    includeModel: getCheckedValue("includeModel"),
   });
 }
 
@@ -428,7 +429,6 @@ async function analyzeSofaPlacement({ force = false } = {}) {
     const payload = {
       ...buildPayload(),
       viewType: undefined,
-      includeModel: undefined,
       imageSize: undefined,
       aspectRatio: undefined,
       sofaAnalysis: undefined,
@@ -1028,10 +1028,18 @@ document.querySelectorAll('input[name="sceneStyle"]').forEach((input) => {
     updateActionState();
   });
 });
-document.querySelectorAll('input[name="viewType"], input[name="includeModel"]').forEach((input) => {
+document.querySelectorAll('input[name="viewType"]').forEach((input) => {
   input.addEventListener("change", () => {
     updatePreviewTitle();
     updateSummary();
+  });
+});
+document.querySelectorAll('input[name="includeModel"]').forEach((input) => {
+  input.addEventListener("change", () => {
+    resetSofaAnalysis();
+    updatePreviewTitle();
+    updateSummary();
+    setMessage("模特设置已变化，请重新 AI 分析后再生成图片。");
   });
 });
 elements.imageSize.addEventListener("change", updateSummary);
