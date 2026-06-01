@@ -30,18 +30,18 @@ const state = {
 const labels = {
   style: {
     modern: "现代简约",
-    cream_luxury: "轻奢暖居",
-    italian: "意式极简",
-    japandi: "侘寂日式",
-    scandinavian: "北欧自然",
-    french: "法式复古",
+    cream_luxury: "轻奢风",
+    italian: "奶油风",
+    japandi: "寂宅风",
+    scandinavian: "北欧风",
+    french: "新中式",
     loft: "都市 Loft",
     coastal: "海岸度假",
-    custom: "自定义场景",
+    custom: "自定义房间",
   },
   view: {
     wide: "远景图",
-    mid: "中景图",
+    mid: "中近景",
     close: "近景",
   },
   model: {
@@ -142,7 +142,7 @@ function apiPath(path) {
 }
 
 function setMessage(message, isError = false) {
-  elements.messageText.textContent = message || "等待上传产品图";
+  elements.messageText.textContent = message || "等待上传沙发图";
   elements.messageText.classList.toggle("is-error", isError);
 }
 
@@ -381,7 +381,7 @@ function setAnalysisText(value) {
 function renderSofaAnalysis() {
   const analysis = getFreshSofaAnalysis();
   setAnalysisText(
-    analysis || "上传家具产品图后，先点击 AI 分析。分析完成并输出结果后，可以直接修改分析内容，再点击生成图片。",
+    analysis || "上传沙发产品图后，先点击 AI 分析。分析完成并输出结果后，可以直接修改分析内容，再点击生成图片。",
   );
   elements.analysisStatus.textContent = state.isAnalyzing ? "分析中" : analysis ? "已完成" : state.analysisError ? "失败" : "待分析";
   elements.analysisStatus.classList.toggle("ready", Boolean(analysis));
@@ -402,8 +402,8 @@ function handleAnalysisEdit() {
 async function analyzeSofaPlacement({ force = false } = {}) {
   if (!shouldAnalyzePlacement()) {
     const message = isCustomStyle() && !state.styleReferenceImage
-      ? "自定义场景需要先上传房间/场景参考图。"
-      : "请先上传家具产品图，并从平台入口打开工具。";
+      ? "自定义房间需要先上传房间参考图。"
+      : "请先上传沙发产品图，并从平台入口打开工具。";
     state.analysisError = true;
     setMessage(message, true);
     renderSofaAnalysis();
@@ -425,7 +425,7 @@ async function analyzeSofaPlacement({ force = false } = {}) {
   state.analysisError = false;
   renderSofaAnalysis();
   updateActionState();
-  setMessage("正在 AI 分析家具体量、空间线索和最佳摆位...");
+  setMessage("正在 AI 分析沙发特征、房间采光和最佳摆位...");
 
   try {
     const payload = {
@@ -562,11 +562,11 @@ async function handleFile(input, key, preview, tile, meta) {
     if (key === "productImage") {
       resetResult();
       resetSofaAnalysis();
-      setMessage(image ? "产品图已锁定，请先点击 AI 分析。" : "");
+      setMessage(image ? "沙发图已锁定，请先点击 AI 分析。" : "");
       updatePreviewTitle();
     } else {
       resetSofaAnalysis();
-      setMessage(image ? "房间/场景参考图已添加，请重新 AI 分析。" : "");
+      setMessage(image ? "房间参考图已添加，请重新 AI 分析。" : "");
     }
     updateSummary();
     updateActionState();
@@ -631,10 +631,10 @@ function updateStyleReferenceState() {
     : customStyle
       ? "必传，生成时保持原图场景"
       : defaultMetaText.styleReferenceImage;
-  elements.styleReferenceTitle.textContent = customStyle ? "自定义场景原图" : "房间/场景参考图";
+  elements.styleReferenceTitle.textContent = customStyle ? "自定义房间原图" : "房间参考图";
   elements.styleReferenceHint.textContent = customStyle
-    ? "保持原图场景结构、门窗、墙地面、已有物品和光线，只把产品放到合理位置"
-    : "只参考色调、材质、光线和软装气质，不还原原房间";
+    ? "保持原房间结构、门窗、墙地面、已有物品和光线，只把沙发放到合理位置"
+    : "普通风格会创建虚拟房间；参考图只提取色调、材质、光线和软装气质";
   elements.styleReferenceDrop.classList.toggle("is-required", customStyle);
   updatePreviewTitle();
   updateSummary();
@@ -741,7 +741,7 @@ async function readResponsePayload(response, fallbackMessage = "请求失败。"
   if (response.ok) return result;
   const message = getResponseMessage(result, fallbackMessage);
   if (response.status === 413) {
-    throw new Error("图片请求体过大：已超过线上代理限制，请换一张更小的产品图或降低图片尺寸后重试。");
+    throw new Error("图片请求体过大：已超过线上代理限制，请换一张更小的沙发图或降低图片尺寸后重试。");
   }
   if (response.status === 504) {
     const error = new Error(message || "生成超时：模型处理超过网关等待时间，请调整分析内容或降低分辨率后重试。");
@@ -775,7 +775,7 @@ async function postGeneratePayload(payload, timeoutMs) {
   const requestBody = JSON.stringify(payload);
   const requestBodyBytes = new Blob([requestBody]).size;
   if (requestBodyBytes > generateBodyMaxBytes) {
-    throw new Error("图片请求体仍然过大，请换一张更小的产品图或参考图后重试。");
+    throw new Error("图片请求体仍然过大，请换一张更小的沙发图或参考图后重试。");
   }
 
   const controller = new AbortController();
@@ -797,11 +797,11 @@ async function generateImage(event) {
   event.preventDefault();
   let payload = buildPayload();
   if (!payload.productImage) {
-    setMessage("请先上传家具产品图。", true);
+    setMessage("请先上传沙发产品图。", true);
     return;
   }
   if (payload.sceneStyle === "custom" && !payload.styleReferenceImage) {
-    setMessage("请选择自定义场景原图。", true);
+    setMessage("请选择自定义房间原图。", true);
     return;
   }
   if (!hasSaasContext()) {
@@ -864,7 +864,7 @@ function addHistoryItem(dataUrl, meta = {}) {
     fileSize: meta.fileSize || 0,
     savedToRecords: Boolean(meta.savedToRecords),
     createdAt: new Date(),
-    product: state.productImage?.name || "家具产品图",
+    product: state.productImage?.name || "沙发产品图",
     ...getCurrentMeta(),
   };
   state.history.unshift(item);

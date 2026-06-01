@@ -1,8 +1,8 @@
 import "../styles.css";
 
 export const metadata = {
-  title: "家具摆放助手",
-  description: "AI 家具摆放效果图生成工具",
+  title: "沙发摆放助手",
+  description: "AI 沙发摆放效果图生成工具",
 };
 
 export default function RootLayout({ children }) {

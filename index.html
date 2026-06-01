@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>家具摆放助手</title>
+    <title>沙发摆放助手</title>
     <script>
       (() => {
         const parts = window.location.pathname.split("/").filter(Boolean);
@@ -25,7 +25,7 @@
           <header class="panel-header">
             <div>
               <p class="eyebrow">Sofa Studio</p>
-              <h1>家具摆放助手</h1>
+              <h1>沙发摆放助手</h1>
             </div>
             <span class="status-pill" id="apiStatus">检测中</span>
           </header>
@@ -34,7 +34,7 @@
             <div class="section-title-row">
               <div>
                 <p class="step-label">01</p>
-                <h2 id="productSectionTitle">产品锁定</h2>
+                <h2 id="productSectionTitle">沙发锁定</h2>
               </div>
               <span class="required-tag">必传</span>
             </div>
@@ -43,14 +43,14 @@
               <input id="productImage" type="file" accept="image/png,image/jpeg,image/webp" />
               <img id="productPreview" alt="" />
               <span class="upload-copy">
-                <span class="upload-title">家具产品图</span>
+                <span class="upload-title">沙发产品图</span>
                 <span class="upload-meta" id="productMeta">PNG / JPG / WEBP，8MB 以内</span>
               </span>
             </label>
 
             <div class="hint-row">
               <span class="hint-dot" aria-hidden="true"></span>
-              <span>保留原图款式、颜色与轮廓</span>
+              <span>保留沙发款式、颜色、材质与轮廓</span>
             </div>
           </section>
 
@@ -71,27 +71,27 @@
               <label class="style-option">
                 <input type="radio" name="sceneStyle" value="cream_luxury" />
                 <span class="swatch luxury" aria-hidden="true"></span>
-                <span>轻奢暖居</span>
+                <span>轻奢风</span>
               </label>
               <label class="style-option">
                 <input type="radio" name="sceneStyle" value="italian" />
                 <span class="swatch italian" aria-hidden="true"></span>
-                <span>意式极简</span>
+                <span>奶油风</span>
               </label>
               <label class="style-option">
                 <input type="radio" name="sceneStyle" value="japandi" />
                 <span class="swatch japandi" aria-hidden="true"></span>
-                <span>侘寂日式</span>
+                <span>寂宅风</span>
               </label>
               <label class="style-option">
                 <input type="radio" name="sceneStyle" value="scandinavian" />
                 <span class="swatch nordic" aria-hidden="true"></span>
-                <span>北欧自然</span>
+                <span>北欧风</span>
               </label>
               <label class="style-option">
                 <input type="radio" name="sceneStyle" value="french" />
                 <span class="swatch french" aria-hidden="true"></span>
-                <span>法式复古</span>
+                <span>新中式</span>
               </label>
               <label class="style-option">
                 <input type="radio" name="sceneStyle" value="loft" />
@@ -106,7 +106,7 @@
               <label class="style-option">
                 <input type="radio" name="sceneStyle" value="custom" />
                 <span class="swatch custom" aria-hidden="true"></span>
-                <span>自定义场景</span>
+                <span>自定义房间</span>
               </label>
             </div>
 
@@ -114,14 +114,14 @@
               <input id="styleReferenceImage" type="file" accept="image/png,image/jpeg,image/webp" />
               <img id="styleReferencePreview" alt="" />
               <span class="upload-copy">
-                <span class="upload-title" id="styleReferenceTitle">房间/场景参考图</span>
+                <span class="upload-title" id="styleReferenceTitle">房间参考图</span>
                 <span class="upload-meta" id="styleReferenceMeta">可选，PNG / JPG / WEBP，8MB 以内</span>
               </span>
             </label>
 
             <div class="hint-row">
               <span class="hint-dot" aria-hidden="true"></span>
-              <span id="styleReferenceHint">普通风格只参考气质；自定义场景会尽量保持原图场景不变</span>
+              <span id="styleReferenceHint">普通风格会创建虚拟房间；自定义房间会尽量保持原房间不变</span>
             </div>
           </section>
 
@@ -162,7 +162,7 @@
               </div>
               <div>
                 <span class="footer-label">状态</span>
-                <span id="messageText">等待上传产品图</span>
+                <span id="messageText">等待上传沙发图</span>
               </div>
             </footer>
           </section>
@@ -191,7 +191,7 @@
                   </label>
                   <label>
                     <input type="radio" name="viewType" value="mid" />
-                    <span>中景</span>
+                    <span>中近景</span>
                   </label>
                   <label>
                     <input type="radio" name="viewType" value="close" />
@@ -243,7 +243,7 @@
                 </div>
                 <dl class="summary-list">
                   <div>
-                    <dt>产品</dt>
+                    <dt>沙发</dt>
                     <dd id="summaryProduct">未上传</dd>
                   </div>
                   <div>
@@ -269,11 +269,11 @@
                 <div class="analysis-card-header">
                   <div>
                     <p class="step-label">AI</p>
-                    <h3>摆位分析结果</h3>
+                    <h3>沙发摆位分析</h3>
                   </div>
                   <span class="analysis-status" id="analysisStatus">待分析</span>
                 </div>
-                <textarea id="analysisText" spellcheck="false">上传家具产品图后，先点击 AI 分析。分析完成并输出结果后，可以直接修改分析内容，再点击生成图片。</textarea>
+                <textarea id="analysisText" spellcheck="false">上传沙发产品图后，先点击 AI 分析。分析完成并输出结果后，可以直接修改分析内容，再点击生成图片。</textarea>
               </section>
             </div>
 
