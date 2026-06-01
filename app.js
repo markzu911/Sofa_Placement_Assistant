@@ -43,6 +43,16 @@ const labels = {
     false: "无模特",
     true: "添加模特",
   },
+  sceneType: {
+    living_room: "客厅",
+    balcony: "阳台",
+    study: "书房",
+    bedroom: "卧室",
+    showroom: "展厅",
+    model_room: "样板间",
+    office: "办公室",
+    hotel_suite: "酒店套房",
+  },
 };
 
 const elements = {
@@ -55,6 +65,7 @@ const elements = {
   styleReferencePreview: document.querySelector("#styleReferencePreview"),
   productMeta: document.querySelector("#productMeta"),
   styleReferenceMeta: document.querySelector("#styleReferenceMeta"),
+  sceneType: document.querySelector("#sceneType"),
   imageSize: document.querySelector("#imageSize"),
   aspectRatio: document.querySelector("#aspectRatio"),
   generateButton: document.querySelector("#generateButton"),
@@ -76,6 +87,7 @@ const elements = {
   apiStatus: document.querySelector("#apiStatus"),
   summaryProduct: document.querySelector("#summaryProduct"),
   summaryScene: document.querySelector("#summaryScene"),
+  summarySceneType: document.querySelector("#summarySceneType"),
   summaryView: document.querySelector("#summaryView"),
   summaryModel: document.querySelector("#summaryModel"),
   summarySpec: document.querySelector("#summarySpec"),
@@ -451,6 +463,10 @@ function getSceneLabel() {
   return state.styleReferenceImage ? `${styleLabel} + 参考图` : styleLabel;
 }
 
+function getSceneTypeLabel() {
+  return labels.sceneType[elements.sceneType.value] || "客厅";
+}
+
 function updateStyleReferenceState() {
   const customStyle = isCustomStyle();
   elements.styleReferenceMeta.textContent = state.styleReferenceImage
@@ -478,7 +494,7 @@ function updatePreviewTitle() {
   }
 
   const viewLabel = labels.view[getCheckedValue("viewType")] || "预览";
-  elements.previewTitle.textContent = `${getSceneLabel()} · ${viewLabel}`;
+  elements.previewTitle.textContent = `${getSceneTypeLabel()} · ${getSceneLabel()} · ${viewLabel}`;
 }
 
 function updatePreviewRatio() {
@@ -520,9 +536,9 @@ function fitPreviewFrameFromSelection() {
 function updateSummary() {
   const viewLabel = labels.view[getCheckedValue("viewType")] || "远景图";
   const modelLabel = labels.model[getCheckedValue("includeModel")] || "无模特";
-
   elements.summaryProduct.textContent = state.productImage ? state.productImage.name : "未上传";
   elements.summaryScene.textContent = getSceneLabel();
+  elements.summarySceneType.textContent = getSceneTypeLabel();
   elements.summaryView.textContent = viewLabel;
   elements.summaryModel.textContent = modelLabel;
   elements.summarySpec.textContent = `${elements.imageSize.value} · ${elements.aspectRatio.value}`;
@@ -531,6 +547,7 @@ function updateSummary() {
 function getCurrentMeta() {
   return {
     scene: getSceneLabel(),
+    sceneType: getSceneTypeLabel(),
     view: labels.view[getCheckedValue("viewType")] || "远景图",
     model: labels.model[getCheckedValue("includeModel")] || "无模特",
     spec: `${elements.imageSize.value} · ${elements.aspectRatio.value}`,
@@ -545,6 +562,7 @@ function buildPayload() {
     ...saasContext,
     saas: saasContext,
     sceneStyle: getCheckedValue("sceneStyle"),
+    sceneType: elements.sceneType.value,
     viewType: getCheckedValue("viewType"),
     includeModel: getCheckedValue("includeModel") === "true",
     imageSize: elements.imageSize.value,
@@ -724,7 +742,7 @@ function renderHistory() {
       body.className = "history-card-body";
 
       const title = document.createElement("h3");
-      title.textContent = item.scene;
+      title.textContent = item.sceneType ? `${item.sceneType} · ${item.scene}` : item.scene;
 
       const meta = document.createElement("p");
       meta.textContent = `${item.view} · ${item.model} · ${item.spec}`;
@@ -861,6 +879,10 @@ document.querySelectorAll('input[name="viewType"], input[name="includeModel"]').
   });
 });
 elements.imageSize.addEventListener("change", updateSummary);
+elements.sceneType.addEventListener("change", () => {
+  updatePreviewTitle();
+  updateSummary();
+});
 elements.aspectRatio.addEventListener("change", updatePreviewRatio);
 elements.form.addEventListener("submit", generateImage);
 elements.downloadButton.addEventListener("click", () => downloadImage());

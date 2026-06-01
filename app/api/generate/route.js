@@ -72,6 +72,7 @@ export async function POST(request) {
       userId: toolContext.userId,
       toolId: toolContext.toolId,
       model,
+      sceneType: payload.sceneType,
       viewType: payload.viewType,
       includeModel: payload.includeModel,
       aspectRatio: payload.aspectRatio,

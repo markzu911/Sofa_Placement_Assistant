@@ -60,6 +60,25 @@ const STYLE_PRESETS = {
   custom: "自定义风格：以参考图 2 的房间风格为主，提取其色调、材质、光线、软装气质和整体氛围。",
 };
 
+const SCENE_TYPE_PRESETS = {
+  living_room:
+    "客厅：将沙发放在主要会客区，面向茶几或电视墙，靠近主墙或窗侧但保留通行距离，地毯、茶几、边几和窗光比例合理。",
+  balcony:
+    "阳台：根据窄长空间、落地窗或护栏位置摆放，沙发靠内侧墙或窗边休闲区，避免挡住主要通道和窗户开启区域。",
+  study:
+    "书房：将沙发作为阅读休息位，靠书柜、书桌侧墙或窗边，加入书架、落地灯、小边几等低干扰元素，空间保持安静整洁。",
+  bedroom:
+    "卧室：将沙发放在床尾、窗边或休闲角，和床、床头柜、衣柜保持真实尺度关系，避免拥挤和遮挡主要家具动线。",
+  showroom:
+    "展厅：采用高级陈列空间，沙发作为唯一核心展品，留出宽阔动线、墙面展示或低矮陈设，灯光强调材质但不过度戏剧化。",
+  model_room:
+    "样板间：生成完整精装住宅氛围，沙发位于自然会客区，软装统一、尺度真实，像楼盘样板间实拍而非空房拼贴。",
+  office:
+    "办公室：将沙发放在接待区、休息区或高管办公室会谈区，周围可有茶几、绿植、办公隔断或玻璃墙，但不出现其他座椅类家具。",
+  hotel_suite:
+    "酒店套房：将沙发放在套房会客角、窗边或床区外侧，搭配地毯、边几、窗帘和暖调灯光，保持酒店级整洁与高级感。",
+};
+
 const VIEW_PRESETS = {
   wide:
     "CAMERA VIEW = FAR / TRUE WIDE COMMERCIAL ROOM SHOT / 远景商品空间图。Camera distance tier: FAR, clearly across the room from the product, roughly 5-7 meters away or equivalent interior-photography distance. Keep the product at the same photographed yaw, pitch, visible sides, and perspective cues from reference image 1. Pull the virtual camera clearly farther back along that same viewing direction, then render a wider original room around the product, but keep this a product-led ecommerce image rather than a real-estate room panorama. This must not look like a medium shot or close shot. Show broad floor area in front of and around the product, wall/floor junction, at least one full wall or large wall section, nearby rug/table/window/door cues, and the product's placement relationship to the room. At least 72% of the image area should be room context and negative space. The full product should be visible, readable, and roughly 8-16% of the image area; its bounding box must not exceed about 30% of the image width or 34% of the image height. Place the product near the lower-middle/center seating zone with generous breathing room on all sides, not cropped, not pushed to a corner or edge. Do not create distance by scaling, warping, changing product pose, or pasting a cutout over a background. Besides the reference product, do not add any sofa, recliner, armchair, lounge chair, chaise, bench, ottoman, pouf, dining chair, stool, or any other seating-shaped furniture anywhere in the room.",
@@ -142,15 +161,17 @@ function buildQualityLine(imageSize) {
 
 function buildPrompt(payload, hasStyleReferenceImage) {
   const styleKey = String(payload.sceneStyle || "modern");
+  const sceneTypeKey = String(payload.sceneType || "living_room");
   const viewKey = String(payload.viewType || "wide");
   const includeModel = Boolean(payload.includeModel);
   const aspectRatio = String(payload.aspectRatio || "1:1");
   const imageSize = String(payload.imageSize || "2K").toUpperCase();
   const styleLine = STYLE_PRESETS[styleKey] || STYLE_PRESETS.modern;
+  const sceneTypeLine = SCENE_TYPE_PRESETS[sceneTypeKey] || SCENE_TYPE_PRESETS.living_room;
   const viewLine = VIEW_PRESETS[viewKey] || VIEW_PRESETS.wide;
   const modelLine = includeModel
-    ? "MODEL: Add exactly one adult lifestyle model. The model may sit naturally on the product, lean lightly on an armrest, or stand beside it. Keep the model secondary and do not cover key product details."
-    : "MODEL: No people, bodies, hands, faces, or human figures.";
+    ? "MODEL: Add exactly one adult lifestyle model naturally interacting with the sofa: sitting on it, leaning back, reading, drinking coffee, or resting. The model must have realistic anatomy and must stay secondary, never covering the product's core selling points such as silhouette, armrests, backrest, cushions, seams, material texture, buttons, metal details, or legs."
+    : "MODEL: No people, bodies, hands, faces, silhouettes, reflections of people, or human figures. Create a clean furniture display image that highlights the sofa itself.";
   const styleReferenceLine = hasStyleReferenceImage
     ? "Reference image 2 is ONLY a loose room-style reference. Borrow palette, material mood, lighting, decor taste, and atmosphere. Do not copy its exact room, layout, architecture, furniture positions, camera angle, or perspective."
     : "No room-style reference image is provided.";
@@ -166,16 +187,20 @@ function buildPrompt(payload, hasStyleReferenceImage) {
       : "Only Reference Image 1 is provided.",
     "",
     "CRITICAL PRODUCT PRESERVATION:",
-    "Keep Reference Image 1 product 100% identical: category, seat count, physical size class, proportions, silhouette, viewing angle, visible sides, armrests, backrest, cushion count, seams, legs/base, upholstery material, fabric texture, color, pattern, and details.",
-    "Do not redesign, recolor, widen, narrow, stretch, squash, rotate, change seat count, change product category, add pillows that hide identity, or invent missing product details.",
-    "Only change camera distance/framing, room environment, lighting integration, contact shadows, and natural occlusion needed to place the exact product in the room.",
+    "Keep Reference Image 1 product 100% identical and keep the sofa body height consistent with the uploaded product: category, seat count, physical size class, proportions, overall outline, viewing angle, visible sides, armrests, backrest, cushion count, footrest, function buttons, hardware, seams, legs/base, upholstery material, fabric/leather texture, color, pattern, and all product details.",
+    "Do not redesign, recolor, reupholster, widen, narrow, stretch, squash, rotate, change height, change seat count, change product category, change armrest/back/cushion structure, add pillows that hide identity, or invent missing product details.",
+    "Only change camera distance/framing, room environment, lighting integration, contact shadows, and tiny natural occlusion needed to place the exact product in the room.",
     "",
     "SCENE:",
+    `Selected space type and placement plan: ${sceneTypeLine}`,
     `Create a new original interior scene in this style: ${styleLine}`,
     styleReferenceLine,
+    "Automatically infer the space perspective, floor angle, horizon height, wall position, window position, light direction, furniture scale, and walking clearance from the selected space type before placing the sofa.",
+    "Place the sofa in a reasonable, usable position for the selected space type: living room, balcony, study, bedroom, showroom, model room, office, or hotel suite placement must each feel intentional and physically plausible.",
     "Render product and room as one coherent photographed scene with shared perspective, lighting, shadows, grain, depth of field, contact shadows, and floor contact.",
     "The product must be the only seating object. Do not add another sofa, recliner, armchair, chaise, bench, ottoman, dining chair, stool, or background seating group.",
     "Place the product in a believable seating zone with rug/table/window/wall/floor context and realistic walking clearance.",
+    "The sofa must truly sit on the floor plane. Align legs/base with the floor, add grounded contact shadows under every support point, and prevent floating, sinking into the floor, clipping through walls/furniture, deformation, or scale distortion.",
     "",
     "COMPOSITION:",
     viewLine,
@@ -183,7 +208,7 @@ function buildPrompt(payload, hasStyleReferenceImage) {
     modelLine,
     `Aspect ratio: ${aspectRatio}. Single image output.`,
     "",
-    "NEGATIVE RULES: no text, no watermark, no price tag, no logo overlay, no duplicate product, no malformed furniture, no pasted cutout edge, no floating product, no mismatched perspective.",
+    "NEGATIVE RULES: no extra sofa, no duplicate product, no wrong product, no changed product style/color/material/texture/seams/arms/back/cushions/footrest/buttons/hardware/outline, no distorted human body, no messy background, no text, no watermark, no price tag, no logo overlay, no low resolution, no over-filtered look, no cartoon style, no malformed furniture, no pasted cutout edge, no floating product, no clipping, no deformation, no mismatched perspective.",
     "Output the image only.",
   ].join("\n");
 }
