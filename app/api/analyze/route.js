@@ -5,7 +5,7 @@ import saas from "../lib/_saas.cjs";
 import shared from "../lib/_shared.cjs";
 
 const { DEFAULT_MODEL, buildSofaAnalysisRequest } = shared;
-const { getToolContext, hasToolContext } = saas;
+const { getToolContext } = saas;
 const { callTextModel } = imageModel;
 const { AppError, createLogger, createRequestId } = runtimeLib;
 
@@ -58,10 +58,6 @@ export async function POST(request) {
       toolId: toolContext.toolId,
       model,
     });
-
-    if (!hasToolContext(toolContext)) {
-      throw new AppError("缺少 SaaS 用户上下文，请从平台入口打开工具。", 400);
-    }
 
     const analysisRequest = buildSofaAnalysisRequest(payload);
     logger.log("analysis.start");

@@ -12,6 +12,15 @@ const state = {
   analysisAbortController: null,
   analysisError: false,
   isAnalyzing: false,
+  activeBriefTab: "params",
+  chatMessages: [
+    {
+      role: "assistant",
+      content: "上传产品图后，可以直接描述拍摄角度、景别和风格；我会保持产品 100% 还原，并按合理落位生成。",
+    },
+  ],
+  chatExtraInstruction: "",
+  chatIsBusy: false,
   saas: {
     userId: "",
     toolId: "",
@@ -41,7 +50,7 @@ const labels = {
   },
   view: {
     wide: "远景图",
-    mid: "中近景",
+    mid: "中景",
     close: "近景",
   },
   model: {
@@ -89,6 +98,15 @@ const elements = {
   summarySpec: document.querySelector("#summarySpec"),
   analysisStatus: document.querySelector("#analysisStatus"),
   analysisText: document.querySelector("#analysisText"),
+  briefTabs: document.querySelector("#briefTabs"),
+  briefTabButtons: document.querySelectorAll("[data-brief-tab]"),
+  paramsPane: document.querySelector("#paramsPane"),
+  chatPane: document.querySelector("#chatPane"),
+  chatLog: document.querySelector("#chatLog"),
+  chatInput: document.querySelector("#chatInput"),
+  chatSendButton: document.querySelector("#chatSendButton"),
+  chatGenerateButton: document.querySelector("#chatGenerateButton"),
+  chatQuickActions: document.querySelectorAll("[data-chat-prompt]"),
   historyPanel: document.querySelector("#historyPanel"),
   historyList: document.querySelector("#historyList"),
   historyCount: document.querySelector("#historyCount"),
@@ -100,11 +118,15 @@ const generateRequestTimeoutMs = 112000;
 const requestImageTargetBytes = 320 * 1024;
 const requestImageMaxDimension = 1600;
 const requestImageMinDimension = 720;
-const analysisPromptVersion = "designer-placement-v5";
+const analysisPromptVersion = "locked-camera-placement-v8";
 const defaultMetaText = {
-  productImage: "PNG / JPG / WEBP，8MB 以内",
+  productImage: "产品图，PNG / JPG / WEBP，8MB 以内",
   styleReferenceImage: "可选，PNG / JPG / WEBP，8MB 以内",
 };
+const validSceneStyles = new Set(Object.keys(labels.style));
+const validViewTypes = new Set(Object.keys(labels.view));
+const validAspectRatios = new Set(["1:1", "4:3", "3:4", "16:9", "9:16", "21:9", "3:2", "2:3", "5:4", "4:5"]);
+const validImageSizes = new Set(["2K", "4K"]);
 
 function firstString(...values) {
   for (const value of values) {
@@ -142,7 +164,7 @@ function apiPath(path) {
 }
 
 function setMessage(message, isError = false) {
-  elements.messageText.textContent = message || "等待上传沙发图";
+  elements.messageText.textContent = message || "等待上传产品图";
   elements.messageText.classList.toggle("is-error", isError);
 }
 
@@ -359,7 +381,7 @@ function resetSofaAnalysis({ abort = true } = {}) {
 }
 
 function shouldAnalyzePlacement() {
-  if (!state.productImage || !hasSaasContext()) return false;
+  if (!state.productImage) return false;
   if (isCustomStyle() && !state.styleReferenceImage) return false;
   return true;
 }
@@ -368,6 +390,14 @@ function updateActionState() {
   const hasFreshAnalysis = Boolean(getFreshSofaAnalysis());
   elements.analyzeButton.disabled = state.isLoading || state.isAnalyzing || !shouldAnalyzePlacement();
   elements.generateButton.disabled = state.isLoading || state.isAnalyzing || !hasFreshAnalysis;
+  const chatBusy = state.chatIsBusy || state.isLoading || state.isAnalyzing;
+  if (elements.chatSendButton) {
+    elements.chatSendButton.disabled = chatBusy || !elements.chatInput.value.trim();
+  }
+  if (elements.chatGenerateButton) {
+    elements.chatGenerateButton.disabled = chatBusy || (!state.chatExtraInstruction && !elements.chatInput.value.trim());
+    elements.chatGenerateButton.classList.toggle("is-loading", state.chatIsBusy || state.isLoading);
+  }
 }
 
 function setAnalysisText(value) {
@@ -381,7 +411,7 @@ function setAnalysisText(value) {
 function renderSofaAnalysis() {
   const analysis = getFreshSofaAnalysis();
   setAnalysisText(
-    analysis || "上传沙发产品图后，先点击 AI 分析。分析完成并输出结果后，可以直接修改分析内容，再点击生成图片。",
+    analysis || "上传产品图后，先点击 AI 分析。分析完成并输出结果后，可以直接修改分析内容，再点击生成图片。",
   );
   elements.analysisStatus.textContent = state.isAnalyzing ? "分析中" : analysis ? "已完成" : state.analysisError ? "失败" : "待分析";
   elements.analysisStatus.classList.toggle("ready", Boolean(analysis));
@@ -403,7 +433,7 @@ async function analyzeSofaPlacement({ force = false } = {}) {
   if (!shouldAnalyzePlacement()) {
     const message = isCustomStyle() && !state.styleReferenceImage
       ? "自定义房间需要先上传房间参考图。"
-      : "请先上传沙发产品图，并从平台入口打开工具。";
+      : "请先上传产品图。";
     state.analysisError = true;
     setMessage(message, true);
     renderSofaAnalysis();
@@ -425,7 +455,7 @@ async function analyzeSofaPlacement({ force = false } = {}) {
   state.analysisError = false;
   renderSofaAnalysis();
   updateActionState();
-  setMessage("正在 AI 分析沙发特征、房间采光和最佳摆位...");
+  setMessage("正在 AI 分析产品特征、房间采光、动线和最佳摆位...");
 
   try {
     const payload = {
@@ -562,7 +592,7 @@ async function handleFile(input, key, preview, tile, meta) {
     if (key === "productImage") {
       resetResult();
       resetSofaAnalysis();
-      setMessage(image ? "沙发图已锁定，请先点击 AI 分析。" : "");
+      setMessage(image ? "产品图已锁定，请先点击 AI 分析。" : "");
       updatePreviewTitle();
     } else {
       resetSofaAnalysis();
@@ -621,7 +651,7 @@ function isCustomStyle() {
 
 function getSceneLabel() {
   const styleLabel = labels.style[getCheckedValue("sceneStyle")] || "选择风格";
-  return state.styleReferenceImage ? `${styleLabel} + 参考图` : styleLabel;
+  return state.styleReferenceImage ? `${styleLabel} + 房间图` : styleLabel;
 }
 
 function updateStyleReferenceState() {
@@ -633,7 +663,7 @@ function updateStyleReferenceState() {
       : defaultMetaText.styleReferenceImage;
   elements.styleReferenceTitle.textContent = customStyle ? "自定义房间原图" : "房间参考图";
   elements.styleReferenceHint.textContent = customStyle
-    ? "保持原房间结构、门窗、墙地面、已有物品和光线，只把沙发放到合理位置"
+    ? "保持原房间结构、门窗、墙地面、已有物品和光线，只把产品放到合理位置"
     : "普通风格会创建虚拟房间；参考图只提取色调、材质、光线和软装气质";
   elements.styleReferenceDrop.classList.toggle("is-required", customStyle);
   updatePreviewTitle();
@@ -726,6 +756,8 @@ function buildPayload() {
     includeModel: getCheckedValue("includeModel") === "true",
     imageSize: elements.imageSize.value,
     aspectRatio: elements.aspectRatio.value,
+    extraInstruction: state.chatExtraInstruction,
+    chatInstruction: state.chatExtraInstruction,
   };
 }
 
@@ -741,7 +773,7 @@ async function readResponsePayload(response, fallbackMessage = "请求失败。"
   if (response.ok) return result;
   const message = getResponseMessage(result, fallbackMessage);
   if (response.status === 413) {
-    throw new Error("图片请求体过大：已超过线上代理限制，请换一张更小的沙发图或降低图片尺寸后重试。");
+    throw new Error("图片请求体过大：已超过线上代理限制，请换一张更小的产品图或降低图片尺寸后重试。");
   }
   if (response.status === 504) {
     const error = new Error(message || "生成超时：模型处理超过网关等待时间，请调整分析内容或降低分辨率后重试。");
@@ -771,11 +803,232 @@ function pickResultUrl(result) {
   return "";
 }
 
+function setBriefTab(tab) {
+  const nextTab = tab === "chat" ? "chat" : "params";
+  state.activeBriefTab = nextTab;
+  elements.briefTabButtons.forEach((button) => {
+    const isActive = button.dataset.briefTab === nextTab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+  elements.paramsPane.classList.toggle("is-active", nextTab === "params");
+  elements.paramsPane.hidden = nextTab !== "params";
+  elements.chatPane.classList.toggle("is-active", nextTab === "chat");
+  elements.chatPane.hidden = nextTab !== "chat";
+  if (nextTab === "chat") {
+    renderChatMessages();
+  }
+}
+
+function renderChatMessages() {
+  if (!elements.chatLog) return;
+  elements.chatLog.replaceChildren(
+    ...state.chatMessages.map((message) => {
+      const item = document.createElement("article");
+      item.className = `chat-message ${message.role === "user" ? "is-user" : "is-assistant"}`;
+
+      const label = document.createElement("span");
+      label.className = "chat-role";
+      label.textContent = message.role === "user" ? "你" : "AI";
+
+      const body = document.createElement("p");
+      body.textContent = message.content;
+
+      item.append(label, body);
+      return item;
+    }),
+  );
+  elements.chatLog.scrollTop = elements.chatLog.scrollHeight;
+}
+
+function addChatMessage(role, content) {
+  const text = String(content || "").trim();
+  if (!text) return;
+  state.chatMessages.push({ role, content: text });
+  if (state.chatMessages.length > 18) {
+    state.chatMessages = [state.chatMessages[0], ...state.chatMessages.slice(-17)];
+  }
+  renderChatMessages();
+}
+
+function setChatBusy(isBusy) {
+  state.chatIsBusy = isBusy;
+  elements.chatPane?.classList.toggle("is-busy", isBusy);
+  updateActionState();
+}
+
+function getCurrentChatConfig() {
+  return {
+    sceneStyle: getCheckedValue("sceneStyle"),
+    viewType: getCheckedValue("viewType"),
+    includeModel: getCheckedValue("includeModel") === "true",
+    imageSize: elements.imageSize.value,
+    aspectRatio: elements.aspectRatio.value,
+  };
+}
+
+function parseChatIntentFromText(rawText) {
+  const raw = String(rawText || "");
+  const actionMatch = raw.match(/\[ACTION\]\s*([\s\S]*)$/i);
+  if (!actionMatch) return null;
+  const actionText = actionMatch[1]
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+  try {
+    return JSON.parse(actionText);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeChatReply(result) {
+  const reply = String(result?.reply || "").trim();
+  if (reply) return reply;
+  const raw = String(result?.raw || result?.text || "").trim();
+  const replyMatch = raw.match(/\[REPLY\]\s*([\s\S]*?)(?=\n\s*\[ACTION\]|$)/i);
+  return String(replyMatch?.[1] || "我已理解你的要求，可以继续调整参数或直接生成。").trim();
+}
+
+function updateChatExtraInstruction(instruction) {
+  const value = String(instruction || "").trim();
+  if (!value) return;
+  const current = state.chatExtraInstruction.trim();
+  if (current.includes(value)) return;
+  state.chatExtraInstruction = (current ? `${current}\n${value}` : value).slice(-1400).trim();
+}
+
+function setRadioValue(name, value) {
+  const input = Array.from(document.querySelectorAll(`input[name="${name}"]`)).find((item) => item.value === String(value));
+  if (!input || input.checked) return false;
+  input.checked = true;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  return true;
+}
+
+function applyChatConfig(config = {}) {
+  if (!config || typeof config !== "object") return;
+
+  const sceneStyle = String(config.sceneStyle || "").trim();
+  if (validSceneStyles.has(sceneStyle)) {
+    setRadioValue("sceneStyle", sceneStyle);
+  }
+
+  const viewType = String(config.viewType || "").trim();
+  if (validViewTypes.has(viewType)) {
+    setRadioValue("viewType", viewType);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(config, "includeModel")) {
+    setRadioValue("includeModel", config.includeModel ? "true" : "false");
+  }
+
+  const imageSize = String(config.imageSize || "").toUpperCase();
+  if (validImageSizes.has(imageSize) && elements.imageSize.value !== imageSize) {
+    elements.imageSize.value = imageSize;
+    elements.imageSize.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  const aspectRatio = String(config.aspectRatio || "").trim();
+  if (validAspectRatios.has(aspectRatio) && elements.aspectRatio.value !== aspectRatio) {
+    elements.aspectRatio.value = aspectRatio;
+    elements.aspectRatio.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+}
+
+function buildChatPayload() {
+  const saasContext = getSaasRequestContext();
+  return {
+    messages: state.chatMessages.map((message) => ({
+      role: message.role,
+      content: message.content,
+    })),
+    currentConfig: getCurrentChatConfig(),
+    currentAnalysis: getFreshSofaAnalysis(),
+    currentExtraInstruction: state.chatExtraInstruction,
+    hasProductImage: Boolean(state.productImage),
+    hasRoomImage: Boolean(state.styleReferenceImage),
+    ...saasContext,
+    saas: saasContext,
+  };
+}
+
+async function handleChatIntent(intent, fallbackInstruction) {
+  const action = String(intent?.action || "none");
+  const smartParams = intent?.smartParams && typeof intent.smartParams === "object" ? intent.smartParams : {};
+  applyChatConfig(smartParams.config);
+  updateChatExtraInstruction(smartParams.extraInstruction || fallbackInstruction);
+  updateSummary();
+  updatePreviewTitle();
+  updateActionState();
+
+  if (action === "analyze_image") {
+    await analyzeSofaPlacement({ force: true });
+    return;
+  }
+
+  if (action !== "generate_smart" || intent?.directGenerate !== true) {
+    setMessage(action === "update_config" ? "对话参数已更新，可以继续调整或生成图片。" : "对话已记录。");
+    return;
+  }
+
+  if (!state.productImage) {
+    setMessage("请先上传产品图，才能保证产品 100% 还原。", true);
+    return;
+  }
+  if (isCustomStyle() && !state.styleReferenceImage) {
+    setMessage("自定义房间需要先上传房间原图。", true);
+    return;
+  }
+
+  let analysis = getFreshSofaAnalysis();
+  if (!analysis) {
+    analysis = await analyzeSofaPlacement({ force: false });
+  }
+  if (!analysis) return;
+
+  await generateImage({ preventDefault() {} });
+}
+
+async function sendChatMessage(textOverride = "", options = {}) {
+  if (state.chatIsBusy) return;
+  const sourceText = textOverride || elements.chatInput.value;
+  let text = String(sourceText || "").trim();
+  if (options.directGenerate && !/(生成|出图|做图|画一张|来一张|开始)/.test(text)) {
+    text = text ? `${text}\n现在直接生成。` : "按当前对话要求直接生成。";
+  }
+  if (!text) return;
+
+  addChatMessage("user", text);
+  elements.chatInput.value = "";
+  setChatBusy(true);
+  setMessage("正在理解对话意图...");
+
+  try {
+    const response = await fetch(apiPath("chat"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildChatPayload()),
+    });
+    const result = await readResponsePayload(response, "AI 对话失败。");
+    const reply = normalizeChatReply(result);
+    const intent = result.action || parseChatIntentFromText(result.raw || result.text);
+    addChatMessage("assistant", reply);
+    await handleChatIntent(intent, text);
+  } catch (error) {
+    addChatMessage("assistant", error.message || "AI 对话失败，请稍后重试。");
+    setMessage(error.message || "AI 对话失败，请稍后重试。", true);
+  } finally {
+    setChatBusy(false);
+  }
+}
+
 async function postGeneratePayload(payload, timeoutMs) {
   const requestBody = JSON.stringify(payload);
   const requestBodyBytes = new Blob([requestBody]).size;
   if (requestBodyBytes > generateBodyMaxBytes) {
-    throw new Error("图片请求体仍然过大，请换一张更小的沙发图或参考图后重试。");
+    throw new Error("图片请求体仍然过大，请换一张更小的产品图或参考图后重试。");
   }
 
   const controller = new AbortController();
@@ -797,15 +1050,11 @@ async function generateImage(event) {
   event.preventDefault();
   let payload = buildPayload();
   if (!payload.productImage) {
-    setMessage("请先上传沙发产品图。", true);
+    setMessage("请先上传产品图。", true);
     return;
   }
   if (payload.sceneStyle === "custom" && !payload.styleReferenceImage) {
     setMessage("请选择自定义房间原图。", true);
-    return;
-  }
-  if (!hasSaasContext()) {
-    setMessage("缺少 SaaS 用户上下文，请从平台入口打开工具。", true);
     return;
   }
   if (!payload.sofaAnalysis) {
@@ -813,7 +1062,7 @@ async function generateImage(event) {
     return;
   }
   setLoading(true);
-  setMessage("正在根据已确认的 AI 分析生成图片，最长等待约 112 秒");
+  setMessage("正在按摄影视角生成房间效果图，最长等待约 112 秒");
   try {
     const result = await postGeneratePayload(payload, generateRequestTimeoutMs);
     const resultUrl = pickResultUrl(result);
@@ -864,7 +1113,7 @@ function addHistoryItem(dataUrl, meta = {}) {
     fileSize: meta.fileSize || 0,
     savedToRecords: Boolean(meta.savedToRecords),
     createdAt: new Date(),
-    product: state.productImage?.name || "沙发产品图",
+    product: state.productImage?.name || "产品图",
     ...getCurrentMeta(),
   };
   state.history.unshift(item);
@@ -1049,6 +1298,21 @@ elements.aspectRatio.addEventListener("change", updatePreviewRatio);
 elements.analyzeButton.addEventListener("click", handleAnalyzeClick);
 elements.analysisText.addEventListener("input", handleAnalysisEdit);
 elements.form.addEventListener("submit", generateImage);
+elements.briefTabButtons.forEach((button) => {
+  button.addEventListener("click", () => setBriefTab(button.dataset.briefTab));
+});
+elements.chatInput.addEventListener("input", updateActionState);
+elements.chatInput.addEventListener("keydown", (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+    event.preventDefault();
+    sendChatMessage();
+  }
+});
+elements.chatSendButton.addEventListener("click", () => sendChatMessage());
+elements.chatGenerateButton.addEventListener("click", () => sendChatMessage("", { directGenerate: true }));
+elements.chatQuickActions.forEach((button) => {
+  button.addEventListener("click", () => sendChatMessage(button.dataset.chatPrompt || ""));
+});
 elements.downloadButton.addEventListener("click", () => downloadImage());
 elements.modalDownloadButton.addEventListener("click", () =>
   downloadImage(state.modalDataUrl || state.resultDataUrl, state.modalFileName || state.resultMeta?.fileName),
@@ -1072,6 +1336,8 @@ if ("ResizeObserver" in window) {
 setupDrop(elements.productDrop, elements.productInput);
 setupDrop(elements.styleReferenceDrop, elements.styleReferenceInput);
 setupSaasBridge();
+setBriefTab("params");
+renderChatMessages();
 updateStyleReferenceState();
 renderSofaAnalysis();
 updatePreviewTitle();

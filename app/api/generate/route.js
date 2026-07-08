@@ -88,12 +88,16 @@ export async function POST(request) {
 
     logger.log("generate.start");
 
-    if (!hasToolContext(toolContext)) {
-      throw new AppError("缺少 SaaS 用户上下文，请从平台入口打开工具。", 400);
-    }
-
     buildGeminiRequest(payload);
-    await verifyBeforeGenerate(toolContext, logger);
+    const shouldSyncToSaas = hasToolContext(toolContext);
+    if (shouldSyncToSaas) {
+      await verifyBeforeGenerate(toolContext, logger);
+    } else {
+      logger.log("saas.verify.skip", {
+        level: "warn",
+        errorMessage: "本地测试模式：缺少 SaaS 用户上下文，跳过积分校验和结果入库。",
+      });
+    }
 
     let sofaAnalysis = normalizeAnalysisText(payload.sofaAnalysis);
     if (!sofaAnalysis) {
@@ -149,6 +153,33 @@ export async function POST(request) {
           savedToRecords: false,
         },
         warning: "图片已生成，但本次模型耗时较长，为避免 504 未同步保存到我的图片。",
+      });
+    }
+
+    if (!shouldSyncToSaas) {
+      const fileName = buildResultFileName(payload, mimeType);
+      logger.log("generate.success", {
+        durationMs: Date.now() - requestStartedAt,
+        fileSize: buffer.byteLength,
+        savedToRecords: false,
+      });
+      return json({
+        model,
+        mimeType,
+        text: image.text,
+        sofaAnalysis,
+        dataUrl: image.dataUrl,
+        url: image.dataUrl,
+        fileName,
+        fileSize: buffer.byteLength,
+        savedToRecords: false,
+        image: {
+          url: image.dataUrl,
+          fileName,
+          fileSize: buffer.byteLength,
+          savedToRecords: false,
+        },
+        warning: "本地测试模式：图片已生成，未扣费，也未保存到我的图片。",
       });
     }
 

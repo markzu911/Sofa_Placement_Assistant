@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>沙发摆放助手</title>
+    <title>产品摆放助手</title>
     <script>
       (() => {
         const parts = window.location.pathname.split("/").filter(Boolean);
@@ -24,8 +24,8 @@
         <aside class="settings-panel" aria-label="素材与场景">
           <header class="panel-header">
             <div>
-              <p class="eyebrow">Sofa Studio</p>
-              <h1>沙发摆放助手</h1>
+              <p class="eyebrow">Placement Studio</p>
+              <h1>产品摆放助手</h1>
             </div>
             <span class="status-pill" id="apiStatus">检测中</span>
           </header>
@@ -34,7 +34,7 @@
             <div class="section-title-row">
               <div>
                 <p class="step-label">01</p>
-                <h2 id="productSectionTitle">沙发锁定</h2>
+                <h2 id="productSectionTitle">产品锁定</h2>
               </div>
               <span class="required-tag">必传</span>
             </div>
@@ -43,14 +43,14 @@
               <input id="productImage" type="file" accept="image/png,image/jpeg,image/webp" />
               <img id="productPreview" alt="" />
               <span class="upload-copy">
-                <span class="upload-title">沙发产品图</span>
+                <span class="upload-title">产品图片</span>
                 <span class="upload-meta" id="productMeta">PNG / JPG / WEBP，8MB 以内</span>
               </span>
             </label>
 
             <div class="hint-row">
               <span class="hint-dot" aria-hidden="true"></span>
-              <span>保留沙发款式、颜色、材质与轮廓</span>
+              <span>保留产品款式、颜色、材质与轮廓</span>
             </div>
           </section>
 
@@ -162,7 +162,7 @@
               </div>
               <div>
                 <span class="footer-label">状态</span>
-                <span id="messageText">等待上传沙发图</span>
+                <span id="messageText">等待上传产品图</span>
               </div>
             </footer>
           </section>
@@ -175,116 +175,144 @@
               </div>
             </header>
 
-            <div class="brief-body">
-              <section class="brief-section" aria-labelledby="outputTitle">
-                <div class="section-title-row">
-                  <div>
-                    <p class="step-label">03</p>
-                    <h3 id="outputTitle">输出设置</h3>
-                  </div>
-                </div>
-
-                <div class="segmented three" role="radiogroup" aria-label="摄影景别">
-                  <label>
-                    <input type="radio" name="viewType" value="wide" checked />
-                    <span>远景</span>
-                  </label>
-                  <label>
-                    <input type="radio" name="viewType" value="mid" />
-                    <span>中近景</span>
-                  </label>
-                  <label>
-                    <input type="radio" name="viewType" value="close" />
-                    <span>近景</span>
-                  </label>
-                </div>
-
-                <div class="segmented two" role="radiogroup" aria-label="添加模特">
-                  <label>
-                    <input type="radio" name="includeModel" value="false" checked />
-                    <span>无模特</span>
-                  </label>
-                  <label>
-                    <input type="radio" name="includeModel" value="true" />
-                    <span>添加模特</span>
-                  </label>
-                </div>
-
-                <div class="setting-grid">
-                  <label class="field">
-                    <span>分辨率</span>
-                    <select id="imageSize">
-                      <option value="2K">2K</option>
-                      <option value="4K">4K</option>
-                    </select>
-                  </label>
-                  <label class="field">
-                    <span>图片比例</span>
-                    <select id="aspectRatio">
-                      <option value="1:1">1:1</option>
-                      <option value="4:3" selected>4:3</option>
-                      <option value="3:4">3:4</option>
-                      <option value="16:9">16:9</option>
-                      <option value="9:16">9:16</option>
-                      <option value="21:9">21:9</option>
-                      <option value="3:2">3:2</option>
-                      <option value="2:3">2:3</option>
-                      <option value="5:4">5:4</option>
-                      <option value="4:5">4:5</option>
-                    </select>
-                  </label>
-                </div>
-              </section>
-
-              <section class="summary-card" aria-label="当前配置">
-                <div>
-                  <p class="step-label">Live</p>
-                  <h3>当前配置</h3>
-                </div>
-                <dl class="summary-list">
-                  <div>
-                    <dt>沙发</dt>
-                    <dd id="summaryProduct">未上传</dd>
-                  </div>
-                  <div>
-                    <dt>场景</dt>
-                    <dd id="summaryScene">现代简约</dd>
-                  </div>
-                  <div>
-                    <dt>景别</dt>
-                    <dd id="summaryView">远景图</dd>
-                  </div>
-                  <div>
-                    <dt>模特</dt>
-                    <dd id="summaryModel">无模特</dd>
-                  </div>
-                  <div>
-                    <dt>规格</dt>
-                    <dd id="summarySpec">2K · 4:3</dd>
-                  </div>
-                </dl>
-              </section>
-
-              <section class="analysis-card" aria-label="AI 摆位分析">
-                <div class="analysis-card-header">
-                  <div>
-                    <p class="step-label">AI</p>
-                    <h3>沙发摆位分析</h3>
-                  </div>
-                  <span class="analysis-status" id="analysisStatus">待分析</span>
-                </div>
-                <textarea id="analysisText" spellcheck="false">上传沙发产品图后，先点击 AI 分析。分析完成并输出结果后，可以直接修改分析内容，再点击生成图片。</textarea>
-              </section>
+            <div class="brief-tabs" id="briefTabs" role="tablist" aria-label="生成模式">
+              <button class="brief-tab is-active" id="paramsTab" type="button" role="tab" aria-selected="true" aria-controls="paramsPane" data-brief-tab="params">参数生成</button>
+              <button class="brief-tab" id="chatTab" type="button" role="tab" aria-selected="false" aria-controls="chatPane" data-brief-tab="chat">AI 对话生图</button>
             </div>
 
-            <div class="brief-actionbar">
-              <button class="secondary-action analyze-action" id="analyzeButton" type="button" disabled>
-                <span>AI 分析</span>
-              </button>
-              <button class="primary-action" id="generateButton" type="submit" disabled>
-                <span class="action-icon" aria-hidden="true"></span>
-                <span>生成图片</span>
-              </button>
+            <div class="brief-pane is-active" id="paramsPane" role="tabpanel" aria-labelledby="paramsTab">
+              <div class="brief-body">
+                <section class="brief-section" aria-labelledby="outputTitle">
+                  <div class="section-title-row">
+                    <div>
+                      <p class="step-label">03</p>
+                      <h3 id="outputTitle">输出设置</h3>
+                    </div>
+                  </div>
+
+                  <div class="segmented three" role="radiogroup" aria-label="摄影景别">
+                    <label>
+                      <input type="radio" name="viewType" value="wide" checked />
+                      <span>远景</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="viewType" value="mid" />
+                      <span>中景</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="viewType" value="close" />
+                      <span>近景</span>
+                    </label>
+                  </div>
+
+                  <div class="segmented two" role="radiogroup" aria-label="添加模特">
+                    <label>
+                      <input type="radio" name="includeModel" value="false" checked />
+                      <span>无模特</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="includeModel" value="true" />
+                      <span>添加模特</span>
+                    </label>
+                  </div>
+
+                  <div class="setting-grid">
+                    <label class="field">
+                      <span>分辨率</span>
+                      <select id="imageSize">
+                        <option value="2K">2K</option>
+                        <option value="4K">4K</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span>图片比例</span>
+                      <select id="aspectRatio">
+                        <option value="1:1">1:1</option>
+                        <option value="4:3" selected>4:3</option>
+                        <option value="3:4">3:4</option>
+                        <option value="16:9">16:9</option>
+                        <option value="9:16">9:16</option>
+                        <option value="21:9">21:9</option>
+                        <option value="3:2">3:2</option>
+                        <option value="2:3">2:3</option>
+                        <option value="5:4">5:4</option>
+                        <option value="4:5">4:5</option>
+                      </select>
+                    </label>
+                  </div>
+                </section>
+
+                <section class="summary-card" aria-label="当前配置">
+                  <div>
+                    <p class="step-label">Live</p>
+                    <h3>当前配置</h3>
+                  </div>
+                  <dl class="summary-list">
+                    <div>
+                      <dt>产品</dt>
+                      <dd id="summaryProduct">未上传</dd>
+                    </div>
+                    <div>
+                      <dt>场景</dt>
+                      <dd id="summaryScene">现代简约</dd>
+                    </div>
+                    <div>
+                      <dt>景别</dt>
+                      <dd id="summaryView">远景图</dd>
+                    </div>
+                    <div>
+                      <dt>模特</dt>
+                      <dd id="summaryModel">无模特</dd>
+                    </div>
+                    <div>
+                      <dt>规格</dt>
+                      <dd id="summarySpec">2K · 4:3</dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section class="analysis-card" aria-label="AI 摆位分析">
+                  <div class="analysis-card-header">
+                    <div>
+                      <p class="step-label">AI</p>
+                      <h3>AI 摆位分析</h3>
+                    </div>
+                    <span class="analysis-status" id="analysisStatus">待分析</span>
+                  </div>
+                  <textarea id="analysisText" spellcheck="false">上传产品图后，先点击 AI 分析。分析完成并输出结果后，可以直接修改分析内容，再点击生成图片。</textarea>
+                </section>
+              </div>
+
+              <div class="brief-actionbar">
+                <button class="secondary-action analyze-action" id="analyzeButton" type="button" disabled>
+                  <span>AI 分析</span>
+                </button>
+                <button class="primary-action" id="generateButton" type="submit" disabled>
+                  <span class="action-icon" aria-hidden="true"></span>
+                  <span>生成图片</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="brief-pane chat-pane" id="chatPane" role="tabpanel" aria-labelledby="chatTab" hidden>
+              <div class="chat-log" id="chatLog" aria-live="polite"></div>
+
+              <div class="chat-quick-actions" aria-label="快捷对话">
+                <button type="button" data-chat-prompt="生成一张中景图，产品保持 100% 还原，相机从产品右前方约 30 度拍摄。">右前方中景</button>
+                <button type="button" data-chat-prompt="换成近景材质图，只拉近镜头展示产品纹理和结构，不移动产品落位。">近景材质</button>
+                <button type="button" data-chat-prompt="生成一张远景空间图，产品放在锁定落位，展示房间整体关系和真实动线。">远景空间</button>
+              </div>
+
+              <div class="chat-compose">
+                <textarea id="chatInput" rows="3" placeholder="描述拍摄角度、景别、风格或直接说生成一张..."></textarea>
+                <div class="chat-compose-actions">
+                  <button class="secondary-action" id="chatSendButton" type="button">发送</button>
+                  <button class="primary-action" id="chatGenerateButton" type="button">
+                    <span class="action-icon" aria-hidden="true"></span>
+                    <span>按对话生成</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </aside>
         </section>
