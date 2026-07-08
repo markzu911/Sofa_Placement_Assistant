@@ -20,14 +20,64 @@
   </head>
   <body>
     <main class="app-root">
-      <form id="generateForm" class="workspace">
-        <aside class="settings-panel" aria-label="素材与场景">
+      <header class="app-topbar">
+        <button class="brand-mark" type="button" data-mode-target="home" aria-label="返回入口">
+          <span class="brand-icon" aria-hidden="true"></span>
+          <span>
+            <strong>产品摆放助手</strong>
+            <small>AI Placement Studio</small>
+          </span>
+        </button>
+
+        <nav class="mode-nav" aria-label="生成模式">
+          <button class="mode-nav-button is-active" type="button" data-mode-button="home" data-mode-target="home">入口</button>
+          <button class="mode-nav-button" type="button" data-mode-button="standard" data-mode-target="standard">常规生图</button>
+          <button class="mode-nav-button" type="button" data-mode-button="chat" data-mode-target="chat">AI 对话生图</button>
+        </nav>
+
+        <span class="status-pill" id="apiStatus">检测中</span>
+      </header>
+
+      <section class="mode-view home-view" id="homeView" data-mode-view="home" aria-label="生成入口">
+        <div class="home-hero">
+          <p class="eyebrow">Choose Creation Mode</p>
+          <h1>选择产品空间图生成入口</h1>
+          <p class="home-copy">
+            常规生图保留上传、AI 摆位分析、人工编辑和参数生成流程；AI 对话生图则用聊天完成参数调整、拍摄角度描述和直接出图。
+          </p>
+        </div>
+
+        <div class="mode-card-grid">
+          <button class="mode-card standard-card" type="button" data-mode-target="standard">
+            <span class="mode-card-icon" aria-hidden="true"></span>
+            <span class="mode-card-body">
+              <span class="mode-card-kicker">Standard Workflow</span>
+              <strong>常规生图工作台</strong>
+              <span>上传产品和房间参考，先做摆位分析，再锁定唯一落位生成远景、中景、近景。</span>
+            </span>
+            <span class="mode-card-arrow" aria-hidden="true">→</span>
+          </button>
+
+          <button class="mode-card chat-card" type="button" data-mode-target="chat">
+            <span class="mode-card-icon" aria-hidden="true"></span>
+            <span class="mode-card-body">
+              <span class="mode-card-kicker">Chat Generate</span>
+              <strong>AI 对话生图</strong>
+              <span>像聊天一样描述风格、画幅、景别和拍摄角度；明确说生成时自动分析并出图。</span>
+            </span>
+            <span class="mode-card-arrow" aria-hidden="true">→</span>
+          </button>
+        </div>
+      </section>
+
+      <form id="generateForm" class="standard-workspace workspace mode-view" data-mode-view="standard" hidden>
+        <aside class="asset-strip settings-panel" aria-label="素材与场景">
           <header class="panel-header">
             <div>
-              <p class="eyebrow">Placement Studio</p>
-              <h1>产品摆放助手</h1>
+              <p class="eyebrow">Camera Studio</p>
+              <h1>常规生图工作台</h1>
             </div>
-            <span class="status-pill" id="apiStatus">检测中</span>
+            <button class="secondary-action compact-action" type="button" data-mode-target="home">入口</button>
           </header>
 
           <section class="form-section" aria-labelledby="productSectionTitle">
@@ -127,8 +177,8 @@
 
         </aside>
 
-        <section class="studio-shell">
-          <section class="result-panel" aria-label="生成预览">
+        <section class="standard-canvas studio-shell">
+          <section class="camera-panel result-panel" aria-label="生成预览">
             <header class="result-header">
               <div>
                 <p class="eyebrow">Preview</p>
@@ -167,20 +217,15 @@
             </footer>
           </section>
 
-          <aside class="brief-panel" aria-label="生成参数">
+          <aside class="control-console brief-panel" aria-label="生成参数">
             <header class="brief-header">
               <div>
-                <p class="eyebrow">Brief</p>
-                <h2>生成参数</h2>
+                <p class="eyebrow">Controls</p>
+                <h2>摄影参数</h2>
               </div>
             </header>
 
-            <div class="brief-tabs" id="briefTabs" role="tablist" aria-label="生成模式">
-              <button class="brief-tab is-active" id="paramsTab" type="button" role="tab" aria-selected="true" aria-controls="paramsPane" data-brief-tab="params">参数生成</button>
-              <button class="brief-tab" id="chatTab" type="button" role="tab" aria-selected="false" aria-controls="chatPane" data-brief-tab="chat">AI 对话生图</button>
-            </div>
-
-            <div class="brief-pane is-active" id="paramsPane" role="tabpanel" aria-labelledby="paramsTab">
+            <div class="brief-pane is-active" id="paramsPane">
               <div class="brief-body">
                 <section class="brief-section" aria-labelledby="outputTitle">
                   <div class="section-title-row">
@@ -293,30 +338,111 @@
                 </button>
               </div>
             </div>
-
-            <div class="brief-pane chat-pane" id="chatPane" role="tabpanel" aria-labelledby="chatTab" hidden>
-              <div class="chat-log" id="chatLog" aria-live="polite"></div>
-
-              <div class="chat-quick-actions" aria-label="快捷对话">
-                <button type="button" data-chat-prompt="生成一张中景图，产品保持 100% 还原，相机从产品右前方约 30 度拍摄。">右前方中景</button>
-                <button type="button" data-chat-prompt="换成近景材质图，只拉近镜头展示产品纹理和结构，不移动产品落位。">近景材质</button>
-                <button type="button" data-chat-prompt="生成一张远景空间图，产品放在锁定落位，展示房间整体关系和真实动线。">远景空间</button>
-              </div>
-
-              <div class="chat-compose">
-                <textarea id="chatInput" rows="3" placeholder="描述拍摄角度、景别、风格或直接说生成一张..."></textarea>
-                <div class="chat-compose-actions">
-                  <button class="secondary-action" id="chatSendButton" type="button">发送</button>
-                  <button class="primary-action" id="chatGenerateButton" type="button">
-                    <span class="action-icon" aria-hidden="true"></span>
-                    <span>按对话生成</span>
-                  </button>
-                </div>
-              </div>
-            </div>
           </aside>
         </section>
       </form>
+
+      <section class="mode-view chat-studio" id="chatStudio" data-mode-view="chat" aria-label="AI 对话生图" hidden>
+        <aside class="chat-assets-panel" aria-label="素材状态">
+          <header class="panel-header">
+            <div>
+              <p class="eyebrow">Assets</p>
+              <h2>素材</h2>
+            </div>
+            <button class="secondary-action compact-action" type="button" data-mode-target="home">入口</button>
+          </header>
+
+          <button class="asset-card" id="chatProductUploadButton" type="button">
+            <span class="asset-thumb">
+              <img id="chatProductMirror" alt="" />
+              <span id="chatProductEmpty">产品图</span>
+            </span>
+            <span>
+              <strong>产品锁定</strong>
+              <small id="chatProductState">未上传，无法 100% 还原</small>
+            </span>
+          </button>
+
+          <button class="asset-card" id="chatRoomUploadButton" type="button">
+            <span class="asset-thumb">
+              <img id="chatRoomMirror" alt="" />
+              <span id="chatRoomEmpty">房间图</span>
+            </span>
+            <span>
+              <strong>房间参考</strong>
+              <small id="chatRoomState">可选，自定义房间时必传</small>
+            </span>
+          </button>
+
+          <div class="chat-config-card">
+            <p class="step-label">Current</p>
+            <dl class="summary-list compact-summary">
+              <div>
+                <dt>风格</dt>
+                <dd id="chatSummaryScene">现代简约</dd>
+              </div>
+              <div>
+                <dt>景别</dt>
+                <dd id="chatSummaryView">远景图</dd>
+              </div>
+              <div>
+                <dt>规格</dt>
+                <dd id="chatSummarySpec">2K · 4:3</dd>
+              </div>
+            </dl>
+          </div>
+        </aside>
+
+        <section class="chat-main-panel">
+          <header class="chat-main-header">
+            <div>
+              <p class="eyebrow">Chat Generate</p>
+              <h2>AI 对话生图</h2>
+            </div>
+            <span id="chatStatusText">等待描述</span>
+          </header>
+
+          <div class="chat-log" id="chatLog" aria-live="polite"></div>
+
+          <div class="chat-quick-actions" aria-label="快捷对话">
+            <button type="button" data-chat-prompt="生成一张中景图，产品保持 100% 还原，相机从产品右前方约 30 度拍摄。">右前方中景</button>
+            <button type="button" data-chat-prompt="换成近景材质图，只拉近镜头展示产品纹理和结构，不移动产品落位。">近景材质</button>
+            <button type="button" data-chat-prompt="生成一张远景空间图，产品放在锁定落位，展示房间整体关系和真实动线。">远景空间</button>
+          </div>
+
+          <div class="chat-compose">
+            <textarea id="chatInput" rows="3" placeholder="描述拍摄角度、景别、风格或直接说生成一张..."></textarea>
+            <div class="chat-compose-actions">
+              <button class="secondary-action" id="chatSendButton" type="button">发送</button>
+              <button class="primary-action" id="chatGenerateButton" type="button">
+                <span class="action-icon" aria-hidden="true"></span>
+                <span>按对话生成</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="chat-preview-panel" aria-label="对话生成结果">
+          <header class="panel-header">
+            <div>
+              <p class="eyebrow">Result</p>
+              <h2>生成结果</h2>
+            </div>
+            <button class="secondary-action compact-action" id="chatDownloadButton" type="button" disabled>下载</button>
+          </header>
+          <div class="chat-result-stage">
+            <div class="chat-result-empty" id="chatResultEmpty">
+              <div class="empty-visual" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <p>结果会显示在这里</p>
+            </div>
+            <img id="chatResultImage" alt="对话生成结果" title="点击预览大图" />
+          </div>
+        </aside>
+      </section>
 
       <section class="history-panel" id="historyPanel" aria-label="生成记录" hidden>
         <header class="history-header">

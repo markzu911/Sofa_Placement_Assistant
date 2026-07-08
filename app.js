@@ -12,7 +12,7 @@ const state = {
   analysisAbortController: null,
   analysisError: false,
   isAnalyzing: false,
-  activeBriefTab: "params",
+  activeMode: "home",
   chatMessages: [
     {
       role: "assistant",
@@ -61,6 +61,11 @@ const labels = {
 
 const elements = {
   form: document.querySelector("#generateForm"),
+  modeViews: document.querySelectorAll("[data-mode-view]"),
+  modeTargets: document.querySelectorAll("[data-mode-target]"),
+  modeButtons: document.querySelectorAll("[data-mode-button]"),
+  homeView: document.querySelector("#homeView"),
+  chatStudio: document.querySelector("#chatStudio"),
   productInput: document.querySelector("#productImage"),
   styleReferenceInput: document.querySelector("#styleReferenceImage"),
   productDrop: document.querySelector("#productDrop"),
@@ -98,15 +103,27 @@ const elements = {
   summarySpec: document.querySelector("#summarySpec"),
   analysisStatus: document.querySelector("#analysisStatus"),
   analysisText: document.querySelector("#analysisText"),
-  briefTabs: document.querySelector("#briefTabs"),
-  briefTabButtons: document.querySelectorAll("[data-brief-tab]"),
   paramsPane: document.querySelector("#paramsPane"),
-  chatPane: document.querySelector("#chatPane"),
+  chatProductUploadButton: document.querySelector("#chatProductUploadButton"),
+  chatRoomUploadButton: document.querySelector("#chatRoomUploadButton"),
+  chatProductMirror: document.querySelector("#chatProductMirror"),
+  chatRoomMirror: document.querySelector("#chatRoomMirror"),
+  chatProductEmpty: document.querySelector("#chatProductEmpty"),
+  chatRoomEmpty: document.querySelector("#chatRoomEmpty"),
+  chatProductState: document.querySelector("#chatProductState"),
+  chatRoomState: document.querySelector("#chatRoomState"),
+  chatSummaryScene: document.querySelector("#chatSummaryScene"),
+  chatSummaryView: document.querySelector("#chatSummaryView"),
+  chatSummarySpec: document.querySelector("#chatSummarySpec"),
+  chatStatusText: document.querySelector("#chatStatusText"),
   chatLog: document.querySelector("#chatLog"),
   chatInput: document.querySelector("#chatInput"),
   chatSendButton: document.querySelector("#chatSendButton"),
   chatGenerateButton: document.querySelector("#chatGenerateButton"),
   chatQuickActions: document.querySelectorAll("[data-chat-prompt]"),
+  chatResultEmpty: document.querySelector("#chatResultEmpty"),
+  chatResultImage: document.querySelector("#chatResultImage"),
+  chatDownloadButton: document.querySelector("#chatDownloadButton"),
   historyPanel: document.querySelector("#historyPanel"),
   historyList: document.querySelector("#historyList"),
   historyCount: document.querySelector("#historyCount"),
@@ -166,6 +183,7 @@ function apiPath(path) {
 function setMessage(message, isError = false) {
   elements.messageText.textContent = message || "等待上传产品图";
   elements.messageText.classList.toggle("is-error", isError);
+  updateChatStatus(message, isError);
 }
 
 function getSaasContextFromUrl() {
@@ -391,13 +409,16 @@ function updateActionState() {
   elements.analyzeButton.disabled = state.isLoading || state.isAnalyzing || !shouldAnalyzePlacement();
   elements.generateButton.disabled = state.isLoading || state.isAnalyzing || !hasFreshAnalysis;
   const chatBusy = state.chatIsBusy || state.isLoading || state.isAnalyzing;
+  const chatText = elements.chatInput ? elements.chatInput.value.trim() : "";
   if (elements.chatSendButton) {
-    elements.chatSendButton.disabled = chatBusy || !elements.chatInput.value.trim();
+    elements.chatSendButton.disabled = chatBusy || !chatText;
   }
   if (elements.chatGenerateButton) {
-    elements.chatGenerateButton.disabled = chatBusy || (!state.chatExtraInstruction && !elements.chatInput.value.trim());
+    elements.chatGenerateButton.disabled =
+      chatBusy || !state.productImage || (!state.chatExtraInstruction && !chatText && !hasFreshAnalysis);
     elements.chatGenerateButton.classList.toggle("is-loading", state.chatIsBusy || state.isLoading);
   }
+  syncChatWorkspace();
 }
 
 function setAnalysisText(value) {
@@ -573,6 +594,7 @@ function resetResult() {
   closeImageModal();
   elements.emptyState.style.display = "grid";
   elements.downloadButton.disabled = true;
+  syncChatWorkspace();
 }
 
 async function handleFile(input, key, preview, tile, meta) {
@@ -642,6 +664,7 @@ function setLoading(isLoading) {
   elements.generateButton.classList.toggle("is-loading", isLoading);
   elements.loadingMask.classList.toggle("visible", isLoading);
   updatePreviewTitle();
+  updateChatStatus();
   updateActionState();
 }
 
@@ -732,6 +755,7 @@ function updateSummary() {
   elements.summaryView.textContent = viewLabel;
   elements.summaryModel.textContent = modelLabel;
   elements.summarySpec.textContent = `${elements.imageSize.value} · ${elements.aspectRatio.value}`;
+  syncChatWorkspace();
 }
 
 function getCurrentMeta() {
@@ -803,21 +827,107 @@ function pickResultUrl(result) {
   return "";
 }
 
-function setBriefTab(tab) {
-  const nextTab = tab === "chat" ? "chat" : "params";
-  state.activeBriefTab = nextTab;
-  elements.briefTabButtons.forEach((button) => {
-    const isActive = button.dataset.briefTab === nextTab;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-selected", isActive ? "true" : "false");
+function setWorkspaceMode(mode) {
+  const nextMode = ["home", "standard", "chat"].includes(mode) ? mode : "home";
+  state.activeMode = nextMode;
+  document.body.dataset.mode = nextMode;
+
+  elements.modeViews.forEach((view) => {
+    const isActive = view.dataset.modeView === nextMode;
+    view.hidden = !isActive;
+    view.classList.toggle("is-active", isActive);
   });
-  elements.paramsPane.classList.toggle("is-active", nextTab === "params");
-  elements.paramsPane.hidden = nextTab !== "params";
-  elements.chatPane.classList.toggle("is-active", nextTab === "chat");
-  elements.chatPane.hidden = nextTab !== "chat";
-  if (nextTab === "chat") {
+
+  elements.modeButtons.forEach((button) => {
+    const isActive = button.dataset.modeButton === nextMode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-current", isActive ? "page" : "false");
+  });
+
+  if (nextMode === "chat") {
     renderChatMessages();
+    syncChatWorkspace();
   }
+
+  if (nextMode === "standard") {
+    requestAnimationFrame(fitPreviewFrameFromSelection);
+  }
+}
+
+function updateChatStatus(message = "", isError = false) {
+  if (!elements.chatStatusText) return;
+  const text = String(message || "").trim();
+  let status = "等待描述";
+  if (isError && text) {
+    status = "需要处理";
+  } else if (state.isLoading) {
+    status = "生成中";
+  } else if (state.isAnalyzing) {
+    status = "分析中";
+  } else if (state.chatIsBusy) {
+    status = "理解中";
+  } else if (state.resultDataUrl) {
+    status = "已生成";
+  } else if (!state.productImage) {
+    status = "等待产品图";
+  } else if (text) {
+    status = text.length > 14 ? `${text.slice(0, 14)}...` : text;
+  }
+  elements.chatStatusText.textContent = status;
+  elements.chatStatusText.classList.toggle("is-error", Boolean(isError));
+}
+
+function syncChatMirror(image, mirror, empty) {
+  if (!mirror || !empty) return;
+  if (image?.dataUrl) {
+    mirror.src = image.dataUrl;
+    mirror.classList.add("visible");
+    empty.hidden = true;
+  } else {
+    mirror.removeAttribute("src");
+    mirror.classList.remove("visible");
+    empty.hidden = false;
+  }
+}
+
+function syncChatWorkspace() {
+  syncChatMirror(state.productImage, elements.chatProductMirror, elements.chatProductEmpty);
+  syncChatMirror(state.styleReferenceImage, elements.chatRoomMirror, elements.chatRoomEmpty);
+
+  if (elements.chatProductState) {
+    elements.chatProductState.textContent = state.productImage
+      ? `${state.productImage.name} · ${formatFileSize(state.productImage.size)}`
+      : "未上传，无法 100% 还原";
+  }
+
+  if (elements.chatRoomState) {
+    elements.chatRoomState.textContent = state.styleReferenceImage
+      ? `${state.styleReferenceImage.name} · ${formatFileSize(state.styleReferenceImage.size)}`
+      : isCustomStyle()
+        ? "自定义房间必传，点击上传"
+        : "可选，提取风格、材质和光线";
+  }
+
+  const viewLabel = labels.view[getCheckedValue("viewType")] || "远景图";
+  if (elements.chatSummaryScene) elements.chatSummaryScene.textContent = getSceneLabel();
+  if (elements.chatSummaryView) elements.chatSummaryView.textContent = viewLabel;
+  if (elements.chatSummarySpec) elements.chatSummarySpec.textContent = `${elements.imageSize.value} · ${elements.aspectRatio.value}`;
+
+  if (elements.chatResultImage && elements.chatResultEmpty && elements.chatDownloadButton) {
+    if (state.resultDataUrl) {
+      elements.chatResultImage.src = state.resultDataUrl;
+      elements.chatResultImage.classList.add("visible");
+      elements.chatResultEmpty.hidden = true;
+      elements.chatDownloadButton.disabled = false;
+    } else {
+      elements.chatResultImage.removeAttribute("src");
+      elements.chatResultImage.classList.remove("visible");
+      elements.chatResultEmpty.hidden = false;
+      elements.chatDownloadButton.disabled = true;
+    }
+  }
+
+  updateChatStatus();
 }
 
 function renderChatMessages() {
@@ -853,7 +963,8 @@ function addChatMessage(role, content) {
 
 function setChatBusy(isBusy) {
   state.chatIsBusy = isBusy;
-  elements.chatPane?.classList.toggle("is-busy", isBusy);
+  elements.chatStudio?.classList.toggle("is-busy", isBusy);
+  updateChatStatus();
   updateActionState();
 }
 
@@ -1088,6 +1199,7 @@ async function generateImage(event) {
     elements.resultImage.classList.add("visible");
     elements.emptyState.style.display = "none";
     elements.downloadButton.disabled = false;
+    syncChatWorkspace();
     addHistoryItem(resultUrl, state.resultMeta);
     if (result.warning) {
       setMessage(result.warning, true);
@@ -1260,6 +1372,9 @@ function handleAnalyzeClick() {
   analyzeSofaPlacement({ force: true });
 }
 
+elements.modeTargets.forEach((target) => {
+  target.addEventListener("click", () => setWorkspaceMode(target.dataset.modeTarget));
+});
 elements.productInput.addEventListener("change", () =>
   handleFile(elements.productInput, "productImage", elements.productPreview, elements.productDrop, elements.productMeta),
 );
@@ -1298,9 +1413,8 @@ elements.aspectRatio.addEventListener("change", updatePreviewRatio);
 elements.analyzeButton.addEventListener("click", handleAnalyzeClick);
 elements.analysisText.addEventListener("input", handleAnalysisEdit);
 elements.form.addEventListener("submit", generateImage);
-elements.briefTabButtons.forEach((button) => {
-  button.addEventListener("click", () => setBriefTab(button.dataset.briefTab));
-});
+elements.chatProductUploadButton?.addEventListener("click", () => elements.productInput.click());
+elements.chatRoomUploadButton?.addEventListener("click", () => elements.styleReferenceInput.click());
 elements.chatInput.addEventListener("input", updateActionState);
 elements.chatInput.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
@@ -1314,6 +1428,7 @@ elements.chatQuickActions.forEach((button) => {
   button.addEventListener("click", () => sendChatMessage(button.dataset.chatPrompt || ""));
 });
 elements.downloadButton.addEventListener("click", () => downloadImage());
+elements.chatDownloadButton?.addEventListener("click", () => downloadImage());
 elements.modalDownloadButton.addEventListener("click", () =>
   downloadImage(state.modalDataUrl || state.resultDataUrl, state.modalFileName || state.resultMeta?.fileName),
 );
@@ -1321,6 +1436,7 @@ elements.modalCloseButton.addEventListener("click", closeImageModal);
 elements.imageModalBackdrop.addEventListener("click", closeImageModal);
 elements.modalImage.addEventListener("load", fitModalImage);
 elements.resultImage.addEventListener("click", () => openImageModal());
+elements.chatResultImage?.addEventListener("click", () => openImageModal());
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && elements.imageModal.classList.contains("visible")) {
     closeImageModal();
@@ -1336,7 +1452,7 @@ if ("ResizeObserver" in window) {
 setupDrop(elements.productDrop, elements.productInput);
 setupDrop(elements.styleReferenceDrop, elements.styleReferenceInput);
 setupSaasBridge();
-setBriefTab("params");
+setWorkspaceMode("home");
 renderChatMessages();
 updateStyleReferenceState();
 renderSofaAnalysis();
