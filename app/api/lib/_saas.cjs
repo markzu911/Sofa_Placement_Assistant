@@ -209,7 +209,7 @@ function buildResultFileName(payload, mimeType) {
   const viewType = String(payload.viewType || "wide").replace(/[^a-z0-9_-]/gi, "");
   const ratio = String(payload.aspectRatio || "1:1").replace(/[^0-9x:-]/gi, "").replace(":", "x");
   const timestamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
-  return `furniture-placement-${viewType}-${ratio}-${timestamp}.${extensionFromMimeType(mimeType)}`;
+  return `villa-sofa-${viewType}-${ratio}-${timestamp}.${extensionFromMimeType(mimeType)}`;
 }
 
 function pickRenderableImageUrl(context, candidates) {

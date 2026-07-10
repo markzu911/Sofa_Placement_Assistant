@@ -16,18 +16,8 @@ export const maxDuration = 60;
 const CHAT_TIMEOUT_MS = 28000;
 const MAX_MESSAGES = 12;
 
-const STYLE_VALUES = [
-  "modern",
-  "cream_luxury",
-  "italian",
-  "japandi",
-  "scandinavian",
-  "french",
-  "loft",
-  "coastal",
-  "custom",
-];
-const VIEW_VALUES = ["wide", "mid", "close"];
+const STYLE_VALUES = ["custom"];
+const VIEW_VALUES = ["villa_wide", "wide", "mid", "close"];
 const RATIO_VALUES = ["1:1", "4:3", "3:4", "16:9", "9:16", "21:9", "3:2", "2:3", "5:4", "4:5"];
 
 function json(payload, status = 200) {
@@ -62,12 +52,13 @@ function getChatModel(ai) {
 
 function getCurrentConfig(payload = {}) {
   const config = payload.currentConfig && typeof payload.currentConfig === "object" ? payload.currentConfig : {};
+  const imageSize = clean(config.imageSize).toUpperCase();
   return {
-    sceneStyle: STYLE_VALUES.includes(clean(config.sceneStyle)) ? clean(config.sceneStyle) : "modern",
-    viewType: VIEW_VALUES.includes(clean(config.viewType)) ? clean(config.viewType) : "wide",
-    aspectRatio: RATIO_VALUES.includes(clean(config.aspectRatio)) ? clean(config.aspectRatio) : "4:3",
-    imageSize: clean(config.imageSize).toUpperCase() === "4K" ? "4K" : "2K",
-    includeModel: Boolean(config.includeModel),
+    sceneStyle: STYLE_VALUES.includes(clean(config.sceneStyle)) ? clean(config.sceneStyle) : "custom",
+    viewType: VIEW_VALUES.includes(clean(config.viewType)) ? clean(config.viewType) : "villa_wide",
+    aspectRatio: RATIO_VALUES.includes(clean(config.aspectRatio)) ? clean(config.aspectRatio) : "16:9",
+    imageSize: ["2K", "4K", "8K"].includes(imageSize) ? imageSize : "8K",
+    includeModel: false,
   };
 }
 
@@ -78,16 +69,16 @@ function buildContextText(payload) {
   const saasInfo = payload.saasInfo && typeof payload.saasInfo === "object" ? payload.saasInfo : {};
 
   return [
-    "【当前产品摆放工作区上下文】",
-    `- 是否已有产品图: ${payload.hasProductImage ? "是" : "否"}`,
-    `- 是否已有房间/风格参考图: ${payload.hasRoomImage ? "是" : "否"}`,
+    "【当前别墅大型沙发生图上下文】",
+    `- 是否已有大型沙发产品参考图: ${payload.hasProductImage ? "是" : "否"}`,
+    `- 是否已有别墅客厅房间参考图: ${payload.hasRoomImage ? "是" : "否"}`,
     `- 当前场景风格 sceneStyle: ${config.sceneStyle}`,
     `- 当前摄影景别 viewType: ${config.viewType}`,
     `- 当前画幅 aspectRatio: ${config.aspectRatio}`,
     `- 当前分辨率 imageSize: ${config.imageSize}`,
-    `- 是否添加模特 includeModel: ${config.includeModel ? "是" : "否"}`,
-    analysis ? `- 当前 AI 摆位分析:\n${analysis.slice(0, 2400)}` : "- 当前 AI 摆位分析: 暂无",
-    extraInstruction ? `- 当前对话补充要求:\n${extraInstruction.slice(0, 900)}` : "- 当前对话补充要求: 暂无",
+    "- 是否添加人物: 否",
+    analysis ? `- 当前生成分析:\n${analysis.slice(0, 2400)}` : "- 当前生成分析: 暂无",
+    extraInstruction ? `- 当前补充要求:\n${extraInstruction.slice(0, 900)}` : "- 当前补充要求: 暂无",
     saasInfo.context ? `- SaaS 页面上下文: ${clean(saasInfo.context)}` : "",
   ]
     .filter(Boolean)
@@ -114,7 +105,7 @@ function buildMessages(payload, systemInstruction) {
       parts: [
         {
           text:
-            "收到。我会围绕产品 100% 还原、合理落位、远景/中景/近景摄影视角和对话触发生图来返回可执行 ACTION JSON。",
+            "收到。我会围绕大型沙发产品 100% 还原、别墅客厅房间融合、24mm 广角斜侧摄影和对话触发生图来返回可执行 ACTION JSON。",
         },
       ],
     },
@@ -131,44 +122,46 @@ function buildMessages(payload, systemInstruction) {
 }
 
 function buildChatRequest(payload) {
-  const systemInstruction = `你是专业的室内商业摄影指导、家具产品还原专家和 AI 对话生图助手。你的任务不是直接生成图片，而是根据用户最新一句话、历史对话、上传状态和当前参数，判断下一步应该执行什么动作。
+  const systemInstruction = `你是顶级别墅软装摄影师、高端家具视觉合成专家和 AI 对话生图助手。你的任务不是直接生成图片，而是根据用户最新一句话、历史对话、上传状态和当前参数，判断下一步应该执行什么动作。
 
 【核心约束】
 - 输出必须只包含 [REPLY] 和 [ACTION] 两段。
 - [REPLY] 写给用户，使用简洁自然的中文。
 - [ACTION] 必须是完全合法 JSON，不允许注释、Markdown 或额外文字。
 - 每轮回复必须针对最新用户请求，严禁复制历史回复。
-- 领域只围绕家具/单椅/沙发/休闲椅/躺椅/按摩椅/室内空间/商业摄影/产品摆放。
-- 只要已有产品图，默认目标就是 100% 保留产品图里的款式、数量、轮廓、颜色、材质、纹理、扶手、靠背、坐垫、脚架、五金、缝线和功能结构。用户要求风格、景别、房间、拍摄角度、光线、构图时，只改变环境和摄影表达，不改变产品本身。
+- 领域只围绕别墅、大平层、豪宅客厅、大型沙发、软装摄影、房间融合和产品 100% 还原。
+- 只要已有产品图，默认目标就是 100% 保留产品图里的大型沙发组合方式、转角结构、贵妃位方向、模块数量、坐垫分割、靠包数量、扶手形态、面料纹理、颜色和整体轮廓。用户要求软装、光线、构图或拍摄角度时，只改变空间和摄影表达，不改变产品本身。
+- 房间参考图用于锁定别墅空间层高、墙面材质、窗户位置、采光方向、地面材质、吊灯、背景墙和豪宅氛围。
 
 【action 定义】
-1. "analyze_image": 用户上传了产品图/房间图后要求分析，或明确要求判断摆位、落位、产品特征、房间可用空间。
+1. "analyze_image": 用户上传了产品图/房间图后要求分析，或明确要求判断产品结构、房间融合、尺度比例、摄影机位。
 2. "generate_smart": 用户明确要求生成、出图、做图、画一张、来一张、直接生成、开始生成、按当前参数生成。
-3. "update_config": 用户只是在修改参数，例如风格、景别、画幅、分辨率、是否模特、拍摄角度、补充构图要求，但没有明确要求立即生成。
+3. "update_config": 用户只是在修改画幅、质感、拍摄角度、光线、软装氛围、补充构图要求，但没有明确要求立即生成。
 4. "none": 普通问答、引导上传、信息不足或闲聊。
 
 【detectedImageType】
-- "product": 产品、家具、单椅、沙发、休闲椅、躺椅、按摩椅。
-- "room": 房间、客厅、卧室、书房、场景参考图。
+- "product": 大型沙发产品参考图。
+- "room": 别墅客厅、豪宅客厅、大平层客厅、房间参考图。
 - "none": 没有新图片或无法判断。
 
 【sceneStyle 可选值】
-modern=现代简约, cream_luxury=轻奢风, italian=奶油风, japandi=寂宅风, scandinavian=北欧风, french=新中式, loft=都市 Loft, coastal=海岸度假, custom=自定义房间。
+custom=别墅豪宅客厅，以房间参考图为准。
 
 【viewType 可选值】
-wide=远景, mid=中景, close=近景。远景/中景/近景只是拍摄距离、焦段、相机高度和轻微角度变化，绝不是改变产品落位。
+villa_wide=豪宅客厅广角斜侧视角，镜头高度约 1.3 米，24mm 室内建筑摄影镜头，完整展示大型沙发组合、客厅开阔感和空间层次。
+wide/mid/close 是兼容旧调用的可选值；如果用户没有明确要求，默认 villa_wide。
 
 【directGenerate 规则】
 - 用户明确说“生成/出图/做图/画一张/来一张/开始/直接生成/按当前参数生成”，directGenerate 必须为 true。
 - 用户说“定制/配置/选择/确认参数/改成/换成/想要某风格”但没有要求开始，action 用 "update_config"，directGenerate 为 false。
-- 如果缺少产品图，action 可以是 "none" 或 "update_config"，reply 要提醒先上传产品图；不要假装可以 100% 还原。
-- 如果用户选择自定义房间但缺少房间图，reply 要提醒上传房间原图；不要改成虚构房间。
+- 如果缺少产品参考图，action 可以是 "none" 或 "update_config"，reply 要提醒先上传大型沙发产品图；不要假装可以 100% 还原。
+- 如果缺少房间参考图，reply 要提醒上传别墅客厅房间图；不要改成虚构房间。
 
 【smartParams.extraInstruction】
 - 必须把用户最新要求整理成可追加到生图 prompt 的自然语言。
-- 只要已有产品图，extraInstruction 必须包含“保持产品原图款式、颜色、材质、结构、比例和数量 100% 不变”的语义。
-- 如果用户要求拍摄角度，要写成摄影语言，例如“相机从产品右前方约 30 度拍摄，保持锁定落位不变”。
-- 如果用户要求远景/中景/近景，要明确“只改变机位距离、焦段和取景范围，不移动产品落位”。
+- 只要已有产品图，extraInstruction 必须包含“严格保持大型沙发产品图的组合方式、转角结构、贵妃位方向、模块数量、坐垫分割、靠包数量、扶手形态、面料纹理、颜色和整体轮廓 100% 不变”的语义。
+- 如果用户要求拍摄角度，要写成摄影语言，例如“镜头高度约 1.3 米，24mm 室内建筑摄影镜头，从豪宅客厅斜侧方拍摄，完整展示大型沙发组合和空间层次”。
+- 用户补充要求只能影响软装氛围、光线、构图、材质细节强调和局部陈设；不得改变沙发产品设计和房间核心结构。
 
 【输出格式】
 [REPLY]
@@ -182,11 +175,11 @@ wide=远景, mid=中景, close=近景。远景/中景/近景只是拍摄距离�
   "directGenerate": true | false,
   "smartParams": {
     "config": {
-      "sceneStyle": "modern" | "cream_luxury" | "italian" | "japandi" | "scandinavian" | "french" | "loft" | "coastal" | "custom",
-      "viewType": "wide" | "mid" | "close",
+      "sceneStyle": "custom",
+      "viewType": "villa_wide" | "wide" | "mid" | "close",
       "aspectRatio": "1:1" | "4:3" | "3:4" | "16:9" | "9:16" | "21:9" | "3:2" | "2:3" | "5:4" | "4:5",
-      "imageSize": "2K" | "4K",
-      "includeModel": true | false
+      "imageSize": "2K" | "4K" | "8K",
+      "includeModel": false
     },
     "extraInstruction": "可追加到生图 prompt 的自然语言"
   }

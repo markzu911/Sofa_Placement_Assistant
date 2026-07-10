@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>产品摆放助手</title>
+    <title>别墅大型沙发生图</title>
     <script>
       (() => {
         const parts = window.location.pathname.split("/").filter(Boolean);
@@ -20,437 +20,109 @@
   </head>
   <body>
     <main class="app-root">
-      <header class="app-topbar">
-        <button class="brand-mark" type="button" data-mode-target="home" aria-label="返回入口">
-          <span class="brand-icon" aria-hidden="true"></span>
-          <span>
-            <strong>产品摆放助手</strong>
-            <small>AI Placement Studio</small>
-          </span>
-        </button>
-
-        <nav class="mode-nav" aria-label="生成模式">
-          <button class="mode-nav-button is-active" type="button" data-mode-button="home" data-mode-target="home">入口</button>
-          <button class="mode-nav-button" type="button" data-mode-button="standard" data-mode-target="standard">常规生图</button>
-          <button class="mode-nav-button" type="button" data-mode-button="chat" data-mode-target="chat">AI 对话生图</button>
-        </nav>
-
-        <span class="status-pill" id="apiStatus">检测中</span>
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <p>Villa Sofa Studio</p>
+            <h1>别墅大型沙发生图</h1>
+          </div>
+        </div>
+        <div class="topbar-meta">
+          <span class="status-pill" id="apiStatus">连接中</span>
+          <span id="modelName">生成服务检测中</span>
+        </div>
       </header>
 
-      <section class="mode-view home-view" id="homeView" data-mode-view="home" aria-label="生成入口">
-        <div class="home-hero">
-          <p class="eyebrow">Choose Creation Mode</p>
-          <h1>选择产品空间图生成入口</h1>
-          <p class="home-copy">
-            常规生图保留上传、AI 摆位分析、人工编辑和参数生成流程；AI 对话生图则用聊天完成参数调整、拍摄角度描述和直接出图。
-          </p>
-        </div>
+      <form class="studio" id="generateForm">
+        <section class="input-panel" aria-label="参考图上传">
+          <div class="panel-heading">
+            <p class="eyebrow">References</p>
+            <h2>上传参考图</h2>
+          </div>
 
-        <div class="mode-card-grid">
-          <button class="mode-card standard-card" type="button" data-mode-target="standard">
-            <span class="mode-card-icon" aria-hidden="true"></span>
-            <span class="mode-card-body">
-              <span class="mode-card-kicker">Standard Workflow</span>
-              <strong>常规生图工作台</strong>
-              <span>上传产品和房间参考，先做摆位分析，再锁定唯一落位生成远景、中景、近景。</span>
+          <label class="upload-card product-card" id="productDrop">
+            <input id="productImage" type="file" accept="image/png,image/jpeg,image/webp" />
+            <img id="productPreview" alt="" />
+            <span class="upload-plus" aria-hidden="true"></span>
+            <span class="upload-copy">
+              <strong>大型沙发产品图</strong>
+              <small id="productMeta">必传，锁定组合方式、转角、贵妃位、模块和面料</small>
             </span>
-            <span class="mode-card-arrow" aria-hidden="true">→</span>
-          </button>
+          </label>
 
-          <button class="mode-card chat-card" type="button" data-mode-target="chat">
-            <span class="mode-card-icon" aria-hidden="true"></span>
-            <span class="mode-card-body">
-              <span class="mode-card-kicker">Chat Generate</span>
-              <strong>AI 对话生图</strong>
-              <span>像聊天一样描述风格、画幅、景别和拍摄角度；明确说生成时自动分析并出图。</span>
+          <label class="upload-card room-card" id="roomDrop">
+            <input id="roomImage" type="file" accept="image/png,image/jpeg,image/webp" />
+            <img id="roomPreview" alt="" />
+            <span class="upload-plus" aria-hidden="true"></span>
+            <span class="upload-copy">
+              <strong>别墅客厅房间图</strong>
+              <small id="roomMeta">必传，锁定层高、墙面、窗位、采光和豪宅氛围</small>
             </span>
-            <span class="mode-card-arrow" aria-hidden="true">→</span>
-          </button>
-        </div>
-      </section>
+          </label>
 
-      <form id="generateForm" class="standard-workspace workspace mode-view" data-mode-view="standard" hidden>
-        <aside class="asset-strip settings-panel" aria-label="素材与场景">
-          <header class="panel-header">
+          <div class="settings-card">
+            <label class="field">
+              <span>画幅</span>
+              <select id="aspectRatio">
+                <option value="16:9" selected>16:9 豪宅横幅</option>
+                <option value="4:3">4:3 空间展示</option>
+                <option value="3:2">3:2 摄影画幅</option>
+                <option value="1:1">1:1 方图</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>质感</span>
+              <select id="imageSize">
+                <option value="4K">4K 高清</option>
+                <option value="8K" selected>8K 质感</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="field brief-field">
+            <span>补充要求</span>
+            <textarea id="extraInstruction" rows="4" placeholder="可选：例如保留原房间吊灯、地毯更高级、茶几使用大理石..."></textarea>
+          </label>
+
+          <button class="primary-action" id="generateButton" type="submit" disabled>
+            <span class="action-icon" aria-hidden="true"></span>
+            <span>生成豪宅沙发空间图</span>
+          </button>
+          <p class="message" id="messageText">请先上传大型沙发产品图和别墅客厅房间图</p>
+        </section>
+
+        <section class="preview-panel" aria-label="生成结果">
+          <header class="preview-header">
             <div>
-              <p class="eyebrow">Camera Studio</p>
-              <h1>常规生图工作台</h1>
+              <p class="eyebrow">Preview</p>
+              <h2 id="previewTitle">等待生成</h2>
             </div>
-            <button class="secondary-action compact-action" type="button" data-mode-target="home">入口</button>
+            <button class="secondary-action" id="downloadButton" type="button" disabled>下载</button>
           </header>
 
-          <section class="form-section" aria-labelledby="productSectionTitle">
-            <div class="section-title-row">
-              <div>
-                <p class="step-label">01</p>
-                <h2 id="productSectionTitle">产品锁定</h2>
+          <div class="preview-stage" id="previewStage">
+            <div class="preview-frame" id="previewFrame">
+              <div class="empty-state" id="emptyState">
+                <span class="empty-icon" aria-hidden="true"></span>
+                <strong>豪宅客厅效果图</strong>
+                <small>广角斜侧视角 · 完整展示大型沙发组合</small>
               </div>
-              <span class="required-tag">必传</span>
-            </div>
-
-            <label class="upload-zone product-zone" id="productDrop">
-              <input id="productImage" type="file" accept="image/png,image/jpeg,image/webp" />
-              <img id="productPreview" alt="" />
-              <span class="upload-copy">
-                <span class="upload-title">产品图片</span>
-                <span class="upload-meta" id="productMeta">PNG / JPG / WEBP，8MB 以内</span>
-              </span>
-            </label>
-
-            <div class="hint-row">
-              <span class="hint-dot" aria-hidden="true"></span>
-              <span>保留产品款式、颜色、材质与轮廓</span>
-            </div>
-          </section>
-
-          <section class="form-section scene-section" aria-labelledby="sceneSectionTitle">
-            <div class="section-title-row">
-              <div>
-                <p class="step-label">02</p>
-                <h2 id="sceneSectionTitle">场景风格</h2>
+              <img id="resultImage" alt="生成结果" title="点击预览大图" />
+              <div class="loading-mask" id="loadingMask">
+                <div class="loader" aria-hidden="true"></div>
+                <p>正在生成别墅软装摄影图</p>
               </div>
             </div>
-
-            <div class="style-list" role="radiogroup" aria-label="场景风格">
-              <label class="style-option">
-                <input type="radio" name="sceneStyle" value="modern" checked />
-                <span class="swatch modern" aria-hidden="true"></span>
-                <span>现代简约</span>
-              </label>
-              <label class="style-option">
-                <input type="radio" name="sceneStyle" value="cream_luxury" />
-                <span class="swatch luxury" aria-hidden="true"></span>
-                <span>轻奢风</span>
-              </label>
-              <label class="style-option">
-                <input type="radio" name="sceneStyle" value="italian" />
-                <span class="swatch italian" aria-hidden="true"></span>
-                <span>奶油风</span>
-              </label>
-              <label class="style-option">
-                <input type="radio" name="sceneStyle" value="japandi" />
-                <span class="swatch japandi" aria-hidden="true"></span>
-                <span>寂宅风</span>
-              </label>
-              <label class="style-option">
-                <input type="radio" name="sceneStyle" value="scandinavian" />
-                <span class="swatch nordic" aria-hidden="true"></span>
-                <span>北欧风</span>
-              </label>
-              <label class="style-option">
-                <input type="radio" name="sceneStyle" value="french" />
-                <span class="swatch french" aria-hidden="true"></span>
-                <span>新中式</span>
-              </label>
-              <label class="style-option">
-                <input type="radio" name="sceneStyle" value="loft" />
-                <span class="swatch loft" aria-hidden="true"></span>
-                <span>都市 Loft</span>
-              </label>
-              <label class="style-option">
-                <input type="radio" name="sceneStyle" value="coastal" />
-                <span class="swatch coastal" aria-hidden="true"></span>
-                <span>海岸度假</span>
-              </label>
-              <label class="style-option">
-                <input type="radio" name="sceneStyle" value="custom" />
-                <span class="swatch custom" aria-hidden="true"></span>
-                <span>自定义房间</span>
-              </label>
-            </div>
-
-            <label class="upload-zone style-reference-zone" id="styleReferenceDrop">
-              <input id="styleReferenceImage" type="file" accept="image/png,image/jpeg,image/webp" />
-              <img id="styleReferencePreview" alt="" />
-              <span class="upload-copy">
-                <span class="upload-title" id="styleReferenceTitle">房间参考图</span>
-                <span class="upload-meta" id="styleReferenceMeta">可选，PNG / JPG / WEBP，8MB 以内</span>
-              </span>
-            </label>
-
-            <div class="hint-row">
-              <span class="hint-dot" aria-hidden="true"></span>
-              <span id="styleReferenceHint">普通风格会创建虚拟房间；自定义房间会尽量保持原房间不变</span>
-            </div>
-          </section>
-
-        </aside>
-
-        <section class="standard-canvas studio-shell">
-          <section class="camera-panel result-panel" aria-label="生成预览">
-            <header class="result-header">
-              <div>
-                <p class="eyebrow">Preview</p>
-                <h2 id="previewTitle">等待生成</h2>
-              </div>
-              <button class="secondary-action" id="downloadButton" type="button" disabled>下载</button>
-            </header>
-
-            <div class="preview-stage" id="previewStage">
-              <div class="preview-frame" id="previewFrame">
-                <div class="empty-state" id="emptyState">
-                  <div class="empty-visual" aria-hidden="true">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                  <p>预览画布</p>
-                </div>
-                <img id="resultImage" alt="生成结果" title="点击预览大图" />
-                <div class="loading-mask" id="loadingMask">
-                  <div class="loader" aria-hidden="true"></div>
-                  <p>生成中</p>
-                </div>
-              </div>
-            </div>
-
-            <footer class="result-footer">
-              <div>
-                <span class="footer-label">模型</span>
-                <span id="modelName">加载中</span>
-              </div>
-              <div>
-                <span class="footer-label">状态</span>
-                <span id="messageText">等待上传产品图</span>
-              </div>
-            </footer>
-          </section>
-
-          <aside class="control-console brief-panel" aria-label="生成参数">
-            <header class="brief-header">
-              <div>
-                <p class="eyebrow">Controls</p>
-                <h2>摄影参数</h2>
-              </div>
-            </header>
-
-            <div class="brief-pane is-active" id="paramsPane">
-              <div class="brief-body">
-                <section class="brief-section" aria-labelledby="outputTitle">
-                  <div class="section-title-row">
-                    <div>
-                      <p class="step-label">03</p>
-                      <h3 id="outputTitle">输出设置</h3>
-                    </div>
-                  </div>
-
-                  <div class="segmented three" role="radiogroup" aria-label="摄影景别">
-                    <label>
-                      <input type="radio" name="viewType" value="wide" checked />
-                      <span>远景</span>
-                    </label>
-                    <label>
-                      <input type="radio" name="viewType" value="mid" />
-                      <span>中景</span>
-                    </label>
-                    <label>
-                      <input type="radio" name="viewType" value="close" />
-                      <span>近景</span>
-                    </label>
-                  </div>
-
-                  <div class="segmented two" role="radiogroup" aria-label="添加模特">
-                    <label>
-                      <input type="radio" name="includeModel" value="false" checked />
-                      <span>无模特</span>
-                    </label>
-                    <label>
-                      <input type="radio" name="includeModel" value="true" />
-                      <span>添加模特</span>
-                    </label>
-                  </div>
-
-                  <div class="setting-grid">
-                    <label class="field">
-                      <span>分辨率</span>
-                      <select id="imageSize">
-                        <option value="2K">2K</option>
-                        <option value="4K">4K</option>
-                      </select>
-                    </label>
-                    <label class="field">
-                      <span>图片比例</span>
-                      <select id="aspectRatio">
-                        <option value="1:1">1:1</option>
-                        <option value="4:3" selected>4:3</option>
-                        <option value="3:4">3:4</option>
-                        <option value="16:9">16:9</option>
-                        <option value="9:16">9:16</option>
-                        <option value="21:9">21:9</option>
-                        <option value="3:2">3:2</option>
-                        <option value="2:3">2:3</option>
-                        <option value="5:4">5:4</option>
-                        <option value="4:5">4:5</option>
-                      </select>
-                    </label>
-                  </div>
-                </section>
-
-                <section class="summary-card" aria-label="当前配置">
-                  <div>
-                    <p class="step-label">Live</p>
-                    <h3>当前配置</h3>
-                  </div>
-                  <dl class="summary-list">
-                    <div>
-                      <dt>产品</dt>
-                      <dd id="summaryProduct">未上传</dd>
-                    </div>
-                    <div>
-                      <dt>场景</dt>
-                      <dd id="summaryScene">现代简约</dd>
-                    </div>
-                    <div>
-                      <dt>景别</dt>
-                      <dd id="summaryView">远景图</dd>
-                    </div>
-                    <div>
-                      <dt>模特</dt>
-                      <dd id="summaryModel">无模特</dd>
-                    </div>
-                    <div>
-                      <dt>规格</dt>
-                      <dd id="summarySpec">2K · 4:3</dd>
-                    </div>
-                  </dl>
-                </section>
-
-                <section class="analysis-card" aria-label="AI 摆位分析">
-                  <div class="analysis-card-header">
-                    <div>
-                      <p class="step-label">AI</p>
-                      <h3>AI 摆位分析</h3>
-                    </div>
-                    <span class="analysis-status" id="analysisStatus">待分析</span>
-                  </div>
-                  <textarea id="analysisText" spellcheck="false">上传产品图后，先点击 AI 分析。分析完成并输出结果后，可以直接修改分析内容，再点击生成图片。</textarea>
-                </section>
-              </div>
-
-              <div class="brief-actionbar">
-                <button class="secondary-action analyze-action" id="analyzeButton" type="button" disabled>
-                  <span>AI 分析</span>
-                </button>
-                <button class="primary-action" id="generateButton" type="submit" disabled>
-                  <span class="action-icon" aria-hidden="true"></span>
-                  <span>生成图片</span>
-                </button>
-              </div>
-            </div>
-          </aside>
+          </div>
         </section>
       </form>
 
-      <section class="mode-view chat-studio" id="chatStudio" data-mode-view="chat" aria-label="AI 对话生图" hidden>
-        <aside class="chat-assets-panel" aria-label="素材状态">
-          <header class="panel-header">
-            <div>
-              <p class="eyebrow">Assets</p>
-              <h2>素材</h2>
-            </div>
-            <button class="secondary-action compact-action" type="button" data-mode-target="home">入口</button>
-          </header>
-
-          <button class="asset-card" id="chatProductUploadButton" type="button">
-            <span class="asset-thumb">
-              <img id="chatProductMirror" alt="" />
-              <span id="chatProductEmpty">产品图</span>
-            </span>
-            <span>
-              <strong>产品锁定</strong>
-              <small id="chatProductState">未上传，无法 100% 还原</small>
-            </span>
-          </button>
-
-          <button class="asset-card" id="chatRoomUploadButton" type="button">
-            <span class="asset-thumb">
-              <img id="chatRoomMirror" alt="" />
-              <span id="chatRoomEmpty">房间图</span>
-            </span>
-            <span>
-              <strong>房间参考</strong>
-              <small id="chatRoomState">可选，自定义房间时必传</small>
-            </span>
-          </button>
-
-          <div class="chat-config-card">
-            <p class="step-label">Current</p>
-            <dl class="summary-list compact-summary">
-              <div>
-                <dt>风格</dt>
-                <dd id="chatSummaryScene">现代简约</dd>
-              </div>
-              <div>
-                <dt>景别</dt>
-                <dd id="chatSummaryView">远景图</dd>
-              </div>
-              <div>
-                <dt>规格</dt>
-                <dd id="chatSummarySpec">2K · 4:3</dd>
-              </div>
-            </dl>
-          </div>
-        </aside>
-
-        <section class="chat-main-panel">
-          <header class="chat-main-header">
-            <div>
-              <p class="eyebrow">Chat Generate</p>
-              <h2>AI 对话生图</h2>
-            </div>
-            <span id="chatStatusText">等待描述</span>
-          </header>
-
-          <div class="chat-log" id="chatLog" aria-live="polite"></div>
-
-          <div class="chat-quick-actions" aria-label="快捷对话">
-            <button type="button" data-chat-prompt="生成一张中景图，产品保持 100% 还原，相机从产品右前方约 30 度拍摄。">右前方中景</button>
-            <button type="button" data-chat-prompt="换成近景材质图，只拉近镜头展示产品纹理和结构，不移动产品落位。">近景材质</button>
-            <button type="button" data-chat-prompt="生成一张远景空间图，产品放在锁定落位，展示房间整体关系和真实动线。">远景空间</button>
-          </div>
-
-          <div class="chat-compose">
-            <textarea id="chatInput" rows="3" placeholder="描述拍摄角度、景别、风格或直接说生成一张..."></textarea>
-            <div class="chat-compose-actions">
-              <button class="secondary-action" id="chatSendButton" type="button">发送</button>
-              <button class="primary-action" id="chatGenerateButton" type="button">
-                <span class="action-icon" aria-hidden="true"></span>
-                <span>按对话生成</span>
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <aside class="chat-preview-panel" aria-label="对话生成结果">
-          <header class="panel-header">
-            <div>
-              <p class="eyebrow">Result</p>
-              <h2>生成结果</h2>
-            </div>
-            <button class="secondary-action compact-action" id="chatDownloadButton" type="button" disabled>下载</button>
-          </header>
-          <div class="chat-result-stage">
-            <div class="chat-result-empty" id="chatResultEmpty">
-              <div class="empty-visual" aria-hidden="true">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-              <p>结果会显示在这里</p>
-            </div>
-            <img id="chatResultImage" alt="对话生成结果" title="点击预览大图" />
-          </div>
-        </aside>
-      </section>
-
-      <section class="history-panel" id="historyPanel" aria-label="生成记录" hidden>
-        <header class="history-header">
-          <div>
-            <p class="eyebrow">History</p>
-            <h2>生成记录</h2>
-          </div>
-          <span class="history-count" id="historyCount">0 张</span>
+      <section class="history-panel" id="historyPanel" hidden>
+        <header>
+          <p class="eyebrow">History</p>
+          <h2>生成记录</h2>
+          <span id="historyCount">0 张</span>
         </header>
         <div class="history-list" id="historyList"></div>
       </section>

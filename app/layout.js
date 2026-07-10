@@ -1,8 +1,8 @@
 import "../styles.css";
 
 export const metadata = {
-  title: "产品摆放助手",
-  description: "AI 产品摆放效果图生成工具",
+  title: "别墅大型沙发生图",
+  description: "别墅、大平层、豪宅客厅大型沙发空间效果图生成工具",
 };
 
 export default function RootLayout({ children }) {

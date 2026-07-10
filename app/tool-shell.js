@@ -21,7 +21,7 @@ export default function ToolShell() {
   return (
     <>
       <div dangerouslySetInnerHTML={{ __html: readMainMarkup() }} />
-      <Script id="sofa-placement-client" strategy="afterInteractive">
+      <Script id="villa-sofa-client" strategy="afterInteractive">
         {readClientScript()}
       </Script>
     </>
